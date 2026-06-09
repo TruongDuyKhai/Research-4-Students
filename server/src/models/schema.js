@@ -3,8 +3,6 @@ const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 function initSchema() {
-  console.log('Initializing SQLite database schema...');
-
   // Enable foreign key support
   db.pragma('foreign_keys = ON');
 
@@ -177,7 +175,6 @@ function initSchema() {
 
   insertSetting.run('max_accounts', '0');
   insertSetting.run('site_name', 'Research 4 Students');
-  console.log('Site settings verified.');
 
   // Seed default Admin user in new schema if not exists
   const adminUsername = process.env.ADMIN_USERNAME || 'admin';
@@ -191,7 +188,6 @@ function initSchema() {
       INSERT INTO users (full_name, username, email, password, role, status, avatar, major)
       VALUES (?, ?, ?, ?, 'admin', 'active', '/uploads/avatar_default.png', 'Administration')
     `).run('System Administrator', adminUsername, adminEmail, passwordHash);
-    console.log('Seeded default admin user in new schema');
   }
 
 
@@ -210,7 +206,6 @@ function initSchema() {
     }
   }
 
-  console.log('Database schema initialization completed.');
 }
 
 module.exports = {

@@ -5,14 +5,13 @@ require('dotenv').config();
 
 // Ensure the db file is stored in the server directory
 const dbPath = path.resolve(__dirname, '../../database.sqlite');
-const db = new Database(dbPath, { verbose: console.log });
+const db = new Database(dbPath);
 
 // Enable foreign key support
 db.pragma('foreign_keys = ON');
 
 // Initialize database tables specific to project collaboration
 function initDb() {
-  console.log('Initializing project collaboration database tables...');
 
   // Create Projects table
   db.prepare(`
