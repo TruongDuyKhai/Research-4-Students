@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Camera, Lock, Eye, CheckCircle2, AlertCircle, User, Key, Settings, Globe, Palette } from 'lucide-react';
 import client from '../api/client';
 import './ProfilePage.css';
+import ImageCropperModal from '../components/ImageCropperModal';
 
 const ProfilePage = () => {
   const { t, i18n } = useTranslation();
@@ -24,6 +25,7 @@ const ProfilePage = () => {
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [cropperImageSrc, setCropperImageSrc] = useState(null);
 
   // 1. Redirect admin away from /profile
   useEffect(() => {
@@ -44,8 +46,8 @@ const ProfilePage = () => {
 
   if (!user || user.role === 'admin') return null;
 
-  // Handle immediate avatar upload
-  const handleAvatarChange = async (e) => {
+  // Handle immediate avatar selection and open cropper modal
+  const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -54,8 +56,17 @@ const ProfilePage = () => {
       return;
     }
 
+    setCropperImageSrc(URL.createObjectURL(file));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Upload cropped image
+  const handleCroppedAvatarUpload = async (blob) => {
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', blob, 'avatar.jpg');
+    formData.append('purpose', 'avatar');
 
     setUploadingAvatar(true);
     setErrorMsg('');
@@ -73,6 +84,10 @@ const ProfilePage = () => {
       setErrorMsg('Failed to upload avatar. Max size is 10MB.');
     } finally {
       setUploadingAvatar(false);
+      if (cropperImageSrc) {
+        URL.revokeObjectURL(cropperImageSrc);
+        setCropperImageSrc(null);
+      }
     }
   };
 
@@ -360,6 +375,16 @@ const ProfilePage = () => {
 
       </div>
 
+      {cropperImageSrc && (
+        <ImageCropperModal
+          imageSrc={cropperImageSrc}
+          onCancel={() => {
+            URL.revokeObjectURL(cropperImageSrc);
+            setCropperImageSrc(null);
+          }}
+          onCropDone={handleCroppedAvatarUpload}
+        />
+      )}
     </div>
   );
 };

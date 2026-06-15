@@ -11,7 +11,7 @@
 
 .auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -21,6 +21,7 @@
   flex-direction: column;
   gap: 24px;
   transition: all 0.3s ease;
+  box-sizing: border-box;
 }
 
 .auth-header {
@@ -108,4 +109,14 @@
 
 .back-link:hover {
   text-decoration: underline;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 480px) {
+  .auth-container {
+    padding: 0 16px;
+  }
+  .auth-card {
+    padding: 32px 16px;
+  }
 }

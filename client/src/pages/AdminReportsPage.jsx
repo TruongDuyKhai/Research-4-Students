@@ -144,7 +144,8 @@ const AdminReportsPage = () => {
         ) : (
           <>
             <div className="admin-table-wrapper">
-              <table className="admin-table">
+              <div className="table-responsive">
+                <table className="admin-table">
                 <thead>
                   <tr>
                     <th className="admin-th">Target</th>
@@ -263,7 +264,8 @@ const AdminReportsPage = () => {
                     );
                   })}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
 
             {/* Pagination */}

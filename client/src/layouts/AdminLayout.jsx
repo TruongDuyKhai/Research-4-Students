@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   ShieldAlert, Users, GraduationCap, Key, FileText, 
-  LayoutDashboard, ArrowLeft, LogOut, Sun, Moon, Laptop
+  LayoutDashboard, ArrowLeft, LogOut, Sun, Moon, Laptop,
+  Menu
 } from 'lucide-react';
 import './AdminLayout.css';
 
@@ -12,6 +13,7 @@ const AdminLayout = () => {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -21,7 +23,8 @@ const AdminLayout = () => {
     <div className="admin-layout-container">
       
       {/* Sidebar Navigation */}
-      <aside className="admin-sidebar">
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+      <aside className={`admin-sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="admin-sidebar-header">
           <div className="admin-logo-box">
             <GraduationCap size={24} />
@@ -30,27 +33,27 @@ const AdminLayout = () => {
         </div>
 
         <nav className="admin-sidebar-menu">
-          <NavLink to="" end className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`}>
+          <NavLink to="" end className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
             <LayoutDashboard size={18} />
             <span>Dashboard</span>
           </NavLink>
           
-          <NavLink to="teachers" className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`}>
+          <NavLink to="teachers" className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
             <GraduationCap size={18} />
             <span>Teachers</span>
           </NavLink>
           
-          <NavLink to="users" className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`}>
+          <NavLink to="users" className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
             <Users size={18} />
             <span>Students</span>
           </NavLink>
           
-          <NavLink to="banned-keywords" className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`}>
+          <NavLink to="banned-keywords" className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
             <Key size={18} />
             <span>Banlist</span>
           </NavLink>
           
-          <NavLink to="reports" className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`}>
+          <NavLink to="reports" className={({ isActive }) => `admin-menu-item ${isActive ? 'active' : ''}`} onClick={() => setSidebarOpen(false)}>
             <ShieldAlert size={18} />
             <span>Reports</span>
           </NavLink>
@@ -60,7 +63,10 @@ const AdminLayout = () => {
         <div className="admin-sidebar-footer">
           <button 
             className="btn-admin-portal-back"
-            onClick={() => navigate('/')}
+            onClick={() => {
+              setSidebarOpen(false);
+              navigate('/');
+            }}
           >
             <ArrowLeft size={16} />
             <span>Student Portal</span>
@@ -73,6 +79,9 @@ const AdminLayout = () => {
         
         {/* Topbar Console Headers */}
         <header className="admin-topbar">
+          <button className="hamburger-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle menu">
+            <Menu size={24} />
+          </button>
           <div className="topbar-left-section">
             <h2 className="topbar-console-title">Management Console</h2>
           </div>

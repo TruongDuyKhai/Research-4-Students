@@ -111,7 +111,7 @@
 /* Web Resources Grid */
 .resources-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 20px;
 }
 
@@ -228,7 +228,7 @@
 /* Quick Links Sections */
 .quick-links-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 24px;
 }
 
@@ -445,8 +445,8 @@
   background-color: var(--color-primary-hover);
 }
 
-/* Responsive Hide for screens under 1024px */
-@media (max-width: 1023px) {
+/* Responsive behavior for screens between 769px and 1023px */
+@media (min-width: 769px) and (max-width: 1023px) {
   .home-grid {
     grid-template-columns: 1fr;
   }
@@ -456,15 +456,23 @@
   }
 }
 
+/* Responsive layout under 768px */
+@media (max-width: 768px) {
+  .home-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .home-sidebar {
+    display: block;
+    width: 100%;
+  }
+}
+
 @media (max-width: 640px) {
   .hero-banner {
     padding: 32px 24px;
   }
   .hero-title {
     font-size: 1.85rem;
-  }
-  .resources-grid,
-  .quick-links-grid {
-    grid-template-columns: 1fr;
   }
 }

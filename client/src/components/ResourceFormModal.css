@@ -253,3 +253,22 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* Responsive modal rules on mobile */
+@media (max-width: 640px) {
+  .modal-container {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    overflow-y: auto !important;
+    padding: 24px 16px !important;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr !important;
+  }
+}
+

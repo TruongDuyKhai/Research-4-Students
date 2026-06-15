@@ -143,7 +143,8 @@ const AdminBanlistPage = () => {
             <div style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-secondary)' }}>No keywords added yet. Forum posts and comments are unfiltered.</div>
           ) : (
             <div className="admin-table-wrapper">
-              <table className="admin-table">
+              <div className="table-responsive">
+                <table className="admin-table">
                 <thead>
                   <tr>
                     <th className="admin-th">Keyword</th>
@@ -175,7 +176,8 @@ const AdminBanlistPage = () => {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+                </table>
+              </div>
             </div>
           )}
         </div>

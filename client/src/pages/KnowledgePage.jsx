@@ -160,82 +160,91 @@ const KnowledgePage = () => {
       
       {/* Sidebar 220px listing subjects/topics */}
       <aside className="knowledge-sidebar">
-        <div className="sidebar-title-row">
-          <span className="sidebar-title">Subjects</span>
-          {isTeacherOrAdmin && (
-            <button 
-              className="btn-add-subject" 
-              onClick={() => setSubjectModalOpen(true)}
-              title="Add Subject"
-            >
-              <Plus size={16} />
-            </button>
-          )}
-        </div>
+        <details className="knowledge-subject-nav" defaultOpen={window.innerWidth > 768}>
+          <summary>Browse subjects</summary>
+          <div className="sidebar-title-row">
+            <span className="sidebar-title">Subjects</span>
+            {isTeacherOrAdmin && (
+              <button 
+                className="btn-add-subject" 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSubjectModalOpen(true);
+                }}
+                title="Add Subject"
+              >
+                <Plus size={16} />
+              </button>
+            )}
+          </div>
 
-        {loadingSubjects ? (
-          <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>Loading...</div>
-        ) : subjects.length === 0 ? (
-          <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>No subjects added yet.</div>
-        ) : (
-          <div className="subjects-list">
-            {subjects.map((sub) => {
-              const isExpanded = !!expandedSubjects[sub.id];
-              const topicsList = subjectTopics[sub.id] || [];
+          {loadingSubjects ? (
+            <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>Loading...</div>
+          ) : subjects.length === 0 ? (
+            <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>No subjects added yet.</div>
+          ) : (
+            <div className="subjects-list">
+              {subjects.map((sub) => {
+                const isExpanded = !!expandedSubjects[sub.id];
+                const topicsList = subjectTopics[sub.id] || [];
 
-              return (
-                <div key={sub.id} className="subject-item">
-                  <button 
-                    className="subject-header"
-                    onClick={(e) => handleSubjectToggle(e, sub)}
-                  >
-                    <div className="subject-header-left">
-                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                        {sub.name}
-                      </span>
-                    </div>
-                    {isTeacherOrAdmin && isExpanded && (
-                      <div className="subject-actions">
-                        <button 
-                          className="btn-add-topic"
-                          onClick={() => {
-                            setActiveSubjectForTopicAdd(sub.id);
-                            setTopicModalOpen(true);
-                          }}
-                          title="Add Topic"
-                        >
-                          <Plus size={12} />
-                        </button>
+                return (
+                  <div key={sub.id} className="subject-item">
+                    <button 
+                      className="subject-header"
+                      onClick={(e) => handleSubjectToggle(e, sub)}
+                    >
+                      <div className="subject-header-left">
+                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                        <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                          {sub.name}
+                        </span>
+                      </div>
+                      {isTeacherOrAdmin && isExpanded && (
+                        <div className="subject-actions">
+                          <button 
+                            className="btn-add-topic"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setActiveSubjectForTopicAdd(sub.id);
+                              setTopicModalOpen(true);
+                            }}
+                            title="Add Topic"
+                          >
+                            <Plus size={12} />
+                          </button>
+                        </div>
+                      )}
+                    </button>
+
+                    {/* Expanded Nested Topics list */}
+                    {isExpanded && (
+                      <div className="topics-sublist">
+                        {topicsList.length === 0 ? (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', padding: '4px 8px' }}>
+                            No topics
+                          </span>
+                        ) : (
+                          topicsList.map((topic) => (
+                            <button
+                              key={topic.id}
+                              className={`topic-btn ${selectedTopic?.id === topic.id ? 'active' : ''}`}
+                              onClick={() => handleTopicSelect(sub, topic)}
+                            >
+                              {topic.name}
+                            </button>
+                          ))
+                        )}
                       </div>
                     )}
-                  </button>
-
-                  {/* Expanded Nested Topics list */}
-                  {isExpanded && (
-                    <div className="topics-sublist">
-                      {topicsList.length === 0 ? (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', padding: '4px 8px' }}>
-                          No topics
-                        </span>
-                      ) : (
-                        topicsList.map((topic) => (
-                          <button
-                            key={topic.id}
-                            className={`topic-btn ${selectedTopic?.id === topic.id ? 'active' : ''}`}
-                            onClick={() => handleTopicSelect(sub, topic)}
-                          >
-                            {topic.name}
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </details>
       </aside>
 
       {/* Main Content Pane (Right side) */}

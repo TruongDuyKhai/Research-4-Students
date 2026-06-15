@@ -104,10 +104,10 @@
   pointer-events: none;
 }
 
-/* Resources 3 Column Grid */
+/* Resources auto-fit Column Grid */
 .directory-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 24px;
 }
 
@@ -281,7 +281,7 @@
 
 .detail-info-block {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 32px;
   border-top: 1px solid var(--color-border);
   padding-top: 28px;

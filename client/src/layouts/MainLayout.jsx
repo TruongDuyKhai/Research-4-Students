@@ -14,7 +14,8 @@ import {
   LogOut, 
   ChevronDown, 
   GraduationCap,
-  Shield
+  Shield,
+  Menu
 } from 'lucide-react';
 import './MainLayout.css';
 
@@ -24,6 +25,7 @@ const MainLayout = () => {
   const location = useLocation();
   const navigate = useRef(useNavigate()); // Avoid unused variable warnings if not used, or use it for custom nav
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState(null);
   const dropdownRef = useRef(null);
 
@@ -94,7 +96,8 @@ const MainLayout = () => {
   return (
     <div className="layout-container">
       {/* Fixed Sidebar */}
-      <aside className="sidebar">
+      {sidebarOpen && <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />}
+      <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <div className="sidebar-brand-section">
           <div className="sidebar-header">
             <GraduationCap className="logo-icon" />
@@ -103,30 +106,30 @@ const MainLayout = () => {
 
           {/* Navigation Links */}
           <nav className="sidebar-menu">
-            <NavLink to="/" className="menu-link" end>
+            <NavLink to="/" className="menu-link" onClick={() => setSidebarOpen(false)} end>
               <Home className="menu-icon" />
               <span>{t('nav.home')}</span>
             </NavLink>
-            <NavLink to="/resources" className="menu-link">
+            <NavLink to="/resources" className="menu-link" onClick={() => setSidebarOpen(false)}>
               <Globe className="menu-icon" />
               <span>{t('nav.resources')}</span>
             </NavLink>
-            <NavLink to="/knowledge" className="menu-link">
+            <NavLink to="/knowledge" className="menu-link" onClick={() => setSidebarOpen(false)}>
               <BookOpen className="menu-icon" />
               <span>{t('nav.knowledge')}</span>
             </NavLink>
-            <NavLink to="/guides" className="menu-link">
+            <NavLink to="/guides" className="menu-link" onClick={() => setSidebarOpen(false)}>
               <FileText className="menu-icon" />
               <span>{t('nav.guides')}</span>
             </NavLink>
-            <NavLink to="/community" className="menu-link">
+            <NavLink to="/community" className="menu-link" onClick={() => setSidebarOpen(false)}>
               <Users className="menu-icon" />
               <span>{t('nav.community')}</span>
             </NavLink>
             
             {/* Admin link displayed to admin user */}
             {user && user.role === 'admin' && (
-              <NavLink to={import.meta.env.VITE_ADMIN_ROUTE || '/portal-mgmt-7f3a'} className="menu-link">
+              <NavLink to={import.meta.env.VITE_ADMIN_ROUTE || '/portal-mgmt-7f3a'} className="menu-link" onClick={() => setSidebarOpen(false)}>
                 <Shield className="menu-icon" />
                 <span>{t('nav.admin')}</span>
               </NavLink>
@@ -161,6 +164,9 @@ const MainLayout = () => {
       <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
         {/* Topbar */}
         <header className="topbar">
+          <button className="hamburger-btn" onClick={() => setSidebarOpen(o => !o)} aria-label="Toggle menu">
+            <Menu size={24} />
+          </button>
           <h1 className="page-title">{getPageTitle()}</h1>
           
           <div className="topbar-right">
