@@ -1,0 +1,111 @@
+/* Auth Layout styles */
+.auth-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: var(--color-bg);
+  padding: 24px;
+  transition: background-color 0.3s ease;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 40px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  transition: all 0.3s ease;
+}
+
+.auth-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.auth-logo {
+  width: 48px;
+  height: 48px;
+  color: var(--color-primary);
+}
+
+.auth-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.auth-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Common form elements for login pages */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 14px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: 0.95rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+  border-color: var(--color-primary);
+}
+
+.submit-btn {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: background-color 0.2s ease;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.submit-btn:hover {
+  background-color: var(--color-primary-hover);
+}
+
+.back-link {
+  font-size: 0.875rem;
+  color: var(--color-primary);
+  font-weight: 500;
+  text-align: center;
+  display: inline-block;
+  margin-top: 12px;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}

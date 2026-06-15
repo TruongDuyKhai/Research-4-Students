@@ -1,0 +1,56 @@
+{
+  "nav": {
+    "home": "Home",
+    "resources": "Research Websites",
+    "knowledge": "Research Basics",
+    "guides": "Outline Guides",
+    "community": "Research Community",
+    "profile": "Profile",
+    "admin": "Admin"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "loading": "Loading...",
+    "search": "Search",
+    "new": "New",
+    "free": "Free",
+    "pro": "Pro",
+    "paid": "Paid"
+  },
+  "auth": {
+    "loginWithGoogle": "Sign in with Google",
+    "teacherLogin": "Teacher login",
+    "adminLogin": "Admin login",
+    "logout": "Logout",
+    "loginWithEmail": "Sign in with email",
+    "orDivider": "or",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "displayName": "Display name",
+    "register": "Create account",
+    "noAccount": "Don't have an account? Sign up",
+    "haveAccount": "Already have an account? Sign in",
+    "gmailOnlyNote": "Only @gmail.com addresses are accepted. We treat addresses like name+anything@gmail.com and n.a.m.e@gmail.com as the same account."
+  },
+  "home": {
+    "heroSubtitle": "The ultimate research collaboration portal for FPT University students.",
+    "exploreResources": "Explore resources",
+    "joinCommunity": "Join community",
+    "recommendedWebsites": "Recommended Research Websites",
+    "viewAll": "View all",
+    "visit": "Visit",
+    "emptyWebsites": "No research websites yet — check back soon!",
+    "researchBasics": "Research Basics",
+    "researchBasicsDesc": "Foundational tutorials, articles, and subjects covering research methodology.",
+    "outlineGuides": "Outline Guides",
+    "outlineGuidesDesc": "Detailed guidelines, outlines, and templates to assist you in writing proposals.",
+    "browse": "Browse",
+    "communityForum": "Community Forum",
+    "signInToJoin": "Sign in to join the discussion",
+    "goToCommunity": "Go to Community"
+  }
+}

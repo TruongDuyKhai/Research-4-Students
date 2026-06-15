@@ -1,0 +1,229 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
+import { Plus, BookOpen, FileText, ChevronRight, Lock, Unlock } from 'lucide-react';
+import client from '../api/client';
+import GuideFormModal from '../components/GuideFormModal';
+import './GuidesPage.css';
+
+const GuidesPage = () => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  const [guides, setGuides] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [activeTab, setActiveTab] = useState('all'); // 'all', 'free', 'pro'
+  
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  const [modalOpen, setModalOpen] = useState(false);
+
+  // 1. Fetch categories dynamically on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const res = await client.get('/guides?limit=100');
+        const allGuides = res.data.data || [];
+        const distinctCats = [...new Set(allGuides.map(g => g.category).filter(Boolean))];
+        setCategories(distinctCats);
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+      }
+    };
+    fetchCategories();
+  }, []);
+
+  // 2. Fetch guides list based on query filters
+  const fetchGuides = async () => {
+    setLoading(true);
+    try {
+      let url = `/guides?page=${page}&limit=${limit}`;
+      if (selectedCategory) {
+        url += `&category=${encodeURIComponent(selectedCategory)}`;
+      }
+      if (activeTab !== 'all') {
+        url += `&access_level=${activeTab}`;
+      }
+      
+      const res = await client.get(url);
+      setGuides(res.data.data || []);
+      
+      const pag = res.data.pagination;
+      if (pag) {
+        setTotal(pag.total || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch guides list:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGuides();
+  }, [page, selectedCategory, activeTab]);
+
+  const handleCategoryChange = (e) => {
+    setSelectedCategory(e.target.value);
+    setPage(1);
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setPage(1);
+  };
+
+  const isTeacherOrAdmin = user && (user.role === 'teacher' || user.role === 'admin');
+
+  return (
+    <div className="guides-container">
+      
+      {/* Header Row */}
+      <div className="guides-header-row">
+        <div className="guides-title-block">
+          <h2 className="guides-title">Research Guides Library</h2>
+          <p className="guides-subtitle">
+            Comprehensive outlines, templates, and guidelines to help write FPT University research proposals.
+          </p>
+        </div>
+        {isTeacherOrAdmin && (
+          <button 
+            className="btn-create-guide"
+            onClick={() => setModalOpen(true)}
+          >
+            <Plus size={16} />
+            <span>New Guide</span>
+          </button>
+        )}
+      </div>
+
+      {/* Filters Row */}
+      <div className="guides-filter-row">
+        {/* Access level Tabs */}
+        <div className="guides-tabs">
+          <button 
+            className={`guide-tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+            onClick={() => handleTabChange('all')}
+          >
+            All Outlines
+          </button>
+          <button 
+            className={`guide-tab-btn ${activeTab === 'free' ? 'active' : ''}`}
+            onClick={() => handleTabChange('free')}
+          >
+            Free
+          </button>
+          <button 
+            className={`guide-tab-btn ${activeTab === 'pro' ? 'active' : ''}`}
+            onClick={() => handleTabChange('pro')}
+          >
+            Pro
+          </button>
+        </div>
+
+        {/* Category Dropdown */}
+        <div className="category-filter-wrapper">
+          <select 
+            className="category-select"
+            value={selectedCategory}
+            onChange={handleCategoryChange}
+          >
+            <option value="">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Guides Grid/List */}
+      {loading ? (
+        <div className="empty-state-card">{t('common.loading')}</div>
+      ) : guides.length === 0 ? (
+        <div className="empty-state-card">
+          <BookOpen size={48} style={{ opacity: 0.4, color: 'var(--color-primary)', marginBottom: '16px' }} />
+          <h3>No Guides Found</h3>
+          <p>We couldn't find any outlines matching your filters. Try selecting a different tab or category.</p>
+        </div>
+      ) : (
+        <div className="guides-list">
+          {guides.map((g) => {
+            const isPro = g.access_level === 'pro';
+            return (
+              <div 
+                key={g.id} 
+                className="guide-card-horizontal"
+                onClick={() => navigate(`/guides/${g.id}`)}
+              >
+                {/* Left side: Icon */}
+                <div className="guide-card-icon-container">
+                  <div className={`guide-card-icon-circle ${isPro ? 'icon-pro' : 'icon-free'}`}>
+                    <FileText size={24} />
+                  </div>
+                </div>
+
+                {/* Center side: Text details */}
+                <div className="guide-card-body">
+                  <span className="guide-card-category">{g.category || 'General'}</span>
+                  <h4 className="guide-card-title">{g.title}</h4>
+                  <p className="guide-card-description">{g.description || 'No description available for this guide.'}</p>
+                </div>
+
+                {/* Right side: Badge and Button */}
+                <div className="guide-card-actions">
+                  <span className={`guide-access-badge badge-${g.access_level}`}>
+                    {isPro ? <Lock size={12} style={{ marginRight: '4px' }} /> : <Unlock size={12} style={{ marginRight: '4px' }} />}
+                    {g.access_level.toUpperCase()}
+                  </span>
+                  <button className="guide-card-btn-view">
+                    <span>View</span>
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pagination Row */}
+      {total > limit && (
+        <div className="guides-pagination">
+          <button 
+            className="btn-guides-page"
+            onClick={() => setPage(prev => Math.max(prev - 1, 1))}
+            disabled={page === 1}
+          >
+            &larr; Prev
+          </button>
+          <span className="guides-page-indicator">
+            Page {page} of {Math.ceil(total / limit)}
+          </span>
+          <button 
+            className="btn-guides-page"
+            onClick={() => setPage(prev => Math.min(prev + 1, Math.ceil(total / limit)))}
+            disabled={page >= Math.ceil(total / limit)}
+          >
+            Next &rarr;
+          </button>
+        </div>
+      )}
+
+      {/* Modal Form */}
+      <GuideFormModal 
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSuccess={fetchGuides}
+      />
+
+    </div>
+  );
+};
+
+export default GuidesPage;

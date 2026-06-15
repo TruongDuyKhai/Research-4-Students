@@ -1,0 +1,386 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
+import { Plus, BookOpen, ChevronDown, ChevronRight, File, FileText } from 'lucide-react';
+import client from '../api/client';
+import SubjectFormModal from '../components/SubjectFormModal';
+import TopicFormModal from '../components/TopicFormModal';
+import ArticleFormModal from '../components/ArticleFormModal';
+import './KnowledgePage.css';
+
+const KnowledgePage = () => {
+  const { t } = useTranslation();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [subjects, setSubjects] = useState([]);
+  const [subjectTopics, setSubjectTopics] = useState({}); // mapping: { [subjectId]: [...topics] }
+  const [expandedSubjects, setExpandedSubjects] = useState({}); // mapping: { [subjectId]: boolean }
+  
+  const [selectedSubject, setSelectedSubject] = useState(null);
+  const [selectedTopic, setSelectedTopic] = useState(null);
+  const [articles, setArticles] = useState([]);
+  
+  const [loadingSubjects, setLoadingSubjects] = useState(true);
+  const [loadingArticles, setLoadingArticles] = useState(false);
+
+  // Pagination states for articles
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  // Modals management
+  const [subjectModalOpen, setSubjectModalOpen] = useState(false);
+  const [topicModalOpen, setTopicModalOpen] = useState(false);
+  const [articleModalOpen, setArticleModalOpen] = useState(false);
+  
+  const [activeSubjectForTopicAdd, setActiveSubjectForTopicAdd] = useState(null);
+
+  // Fetch subjects on mount
+  const fetchSubjects = async () => {
+    setLoadingSubjects(true);
+    try {
+      const res = await client.get('/knowledge/subjects');
+      setSubjects(res.data.data || []);
+    } catch (err) {
+      console.error('Failed to fetch subjects:', err);
+    } finally {
+      setLoadingSubjects(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSubjects();
+  }, []);
+
+  // Handle state passed from breadcrumbs/details pages (e.g. from ArticleDetailPage)
+  useEffect(() => {
+    const initFromLocationState = async () => {
+      if (location.state && location.state.subjectId) {
+        const subId = location.state.subjectId;
+        
+        // 1. Expand the subject
+        setExpandedSubjects(prev => ({ ...prev, [subId]: true }));
+        
+        // 2. Fetch its topics if they aren't loaded yet
+        let topicsList = subjectTopics[subId];
+        if (!topicsList) {
+          try {
+            const res = await client.get(`/knowledge/subjects/${subId}/topics`);
+            topicsList = res.data.data || [];
+            setSubjectTopics(prev => ({ ...prev, [subId]: topicsList }));
+          } catch (err) {
+            console.error('Failed to load topics for expanded subject:', err);
+          }
+        }
+        
+        // 3. Find and select the topic if topicId is provided
+        const matchedSubject = subjects.find(s => s.id === subId);
+        if (matchedSubject) {
+          setSelectedSubject(matchedSubject);
+        }
+        
+        if (location.state.topicId && topicsList) {
+          const matchedTopic = topicsList.find(t => t.id === location.state.topicId);
+          if (matchedTopic) {
+            setSelectedTopic(matchedTopic);
+            setPage(1);
+            fetchArticles(matchedTopic.id, 1);
+          }
+        }
+      }
+    };
+
+    if (subjects.length > 0) {
+      initFromLocationState();
+    }
+  }, [location.state, subjects]);
+
+  // Fetch articles under selected topic
+  const fetchArticles = async (topicId, activePage = page) => {
+    if (!topicId) return;
+    setLoadingArticles(true);
+    try {
+      const res = await client.get(`/knowledge/articles?topic_id=${topicId}&page=${activePage}&limit=${limit}`);
+      setArticles(res.data.data || []);
+      const pag = res.data.pagination;
+      if (pag) {
+        setTotal(pag.total || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch articles:', err);
+    } finally {
+      setLoadingArticles(false);
+    }
+  };
+
+  // Toggle subject expansion and lazy-load topics
+  const handleSubjectToggle = async (e, subject) => {
+    // Prevent event bubbling if clicking nested buttons
+    if (e.target.closest('.btn-add-topic')) return;
+
+    const subId = subject.id;
+    const isExpanded = !expandedSubjects[subId];
+    setExpandedSubjects(prev => ({ ...prev, [subId]: isExpanded }));
+
+    if (isExpanded && !subjectTopics[subId]) {
+      try {
+        const res = await client.get(`/knowledge/subjects/${subId}/topics`);
+        setSubjectTopics(prev => ({ ...prev, [subId]: res.data.data || [] }));
+      } catch (err) {
+        console.error(`Failed to fetch topics for subject ${subId}:`, err);
+      }
+    }
+  };
+
+  const handleTopicSelect = (subject, topic) => {
+    setSelectedSubject(subject);
+    setSelectedTopic(topic);
+    setPage(1);
+    fetchArticles(topic.id, 1);
+  };
+
+  // Callback after successful topic creation
+  const handleTopicCreateSuccess = async () => {
+    if (!activeSubjectForTopicAdd) return;
+    try {
+      const res = await client.get(`/knowledge/subjects/${activeSubjectForTopicAdd}/topics`);
+      setSubjectTopics(prev => ({ ...prev, [activeSubjectForTopicAdd]: res.data.data || [] }));
+    } catch (err) {
+      console.error('Failed to reload topics:', err);
+    }
+  };
+
+  const isTeacherOrAdmin = user && (user.role === 'teacher' || user.role === 'admin');
+
+  return (
+    <div className="knowledge-container">
+      
+      {/* Sidebar 220px listing subjects/topics */}
+      <aside className="knowledge-sidebar">
+        <div className="sidebar-title-row">
+          <span className="sidebar-title">Subjects</span>
+          {isTeacherOrAdmin && (
+            <button 
+              className="btn-add-subject" 
+              onClick={() => setSubjectModalOpen(true)}
+              title="Add Subject"
+            >
+              <Plus size={16} />
+            </button>
+          )}
+        </div>
+
+        {loadingSubjects ? (
+          <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>Loading...</div>
+        ) : subjects.length === 0 ? (
+          <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>No subjects added yet.</div>
+        ) : (
+          <div className="subjects-list">
+            {subjects.map((sub) => {
+              const isExpanded = !!expandedSubjects[sub.id];
+              const topicsList = subjectTopics[sub.id] || [];
+
+              return (
+                <div key={sub.id} className="subject-item">
+                  <button 
+                    className="subject-header"
+                    onClick={(e) => handleSubjectToggle(e, sub)}
+                  >
+                    <div className="subject-header-left">
+                      {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                      <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                        {sub.name}
+                      </span>
+                    </div>
+                    {isTeacherOrAdmin && isExpanded && (
+                      <div className="subject-actions">
+                        <button 
+                          className="btn-add-topic"
+                          onClick={() => {
+                            setActiveSubjectForTopicAdd(sub.id);
+                            setTopicModalOpen(true);
+                          }}
+                          title="Add Topic"
+                        >
+                          <Plus size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </button>
+
+                  {/* Expanded Nested Topics list */}
+                  {isExpanded && (
+                    <div className="topics-sublist">
+                      {topicsList.length === 0 ? (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', padding: '4px 8px' }}>
+                          No topics
+                        </span>
+                      ) : (
+                        topicsList.map((topic) => (
+                          <button
+                            key={topic.id}
+                            className={`topic-btn ${selectedTopic?.id === topic.id ? 'active' : ''}`}
+                            onClick={() => handleTopicSelect(sub, topic)}
+                          >
+                            {topic.name}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </aside>
+
+      {/* Main Content Pane (Right side) */}
+      <main className="knowledge-main">
+        {selectedTopic ? (
+          <>
+            {/* Header info */}
+            <div className="topic-header-row">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>
+                  {selectedSubject.name} &gt;
+                </span>
+                <h2 className="topic-title">{selectedTopic.name}</h2>
+              </div>
+              {isTeacherOrAdmin && (
+                <button 
+                  className="btn-new-article"
+                  onClick={() => setArticleModalOpen(true)}
+                >
+                  <Plus size={16} />
+                  <span>New Article</span>
+                </button>
+              )}
+            </div>
+
+            {/* Articles List */}
+            {loadingArticles ? (
+              <div className="empty-state">{t('common.loading')}</div>
+            ) : articles.length === 0 ? (
+              <div className="empty-state" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                <FileText size={40} style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }} />
+                <span>No articles under this topic yet.</span>
+                {isTeacherOrAdmin && (
+                  <button 
+                    className="btn-new-article"
+                    onClick={() => setArticleModalOpen(true)}
+                    style={{ marginTop: '8px' }}
+                  >
+                    <Plus size={16} />
+                    <span>Create first article</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="articles-list">
+                {articles.map((art) => (
+                  <div 
+                    key={art.id} 
+                    className="article-card"
+                    onClick={() => navigate(`/knowledge/articles/${art.id}`)}
+                  >
+                    <div className="article-card-header">
+                      <h4 className="article-title">{art.title}</h4>
+                      {art.pdf_file_id && (
+                        <span className="pdf-icon-indicator">
+                          <File size={12} />
+                          <span>PDF</span>
+                        </span>
+                      )}
+                    </div>
+                    <p className="article-snippet">
+                      {art.content 
+                        ? art.content.replace(/[#*`_]/g, '') // strip markdown markers for snippet
+                        : 'No text content available.'}
+                    </p>
+                    <div className="article-meta-row">
+                      <span>Created: {new Date(art.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
+                      {isTeacherOrAdmin && (
+                        <span className={`article-status-badge status-${art.status}`}>
+                          {art.status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Paging */}
+            {total > limit && (
+              <div className="pagination-row">
+                <button 
+                  className="btn-page"
+                  onClick={() => {
+                    const prev = page - 1;
+                    setPage(prev);
+                    fetchArticles(selectedTopic.id, prev);
+                  }}
+                  disabled={page === 1}
+                >
+                  &larr; Prev
+                </button>
+                <span className="page-indicator">
+                  Page {page} of {Math.ceil(total / limit)}
+                </span>
+                <button 
+                  className="btn-page"
+                  onClick={() => {
+                    const next = page + 1;
+                    setPage(next);
+                    fetchArticles(selectedTopic.id, next);
+                  }}
+                  disabled={page >= Math.ceil(total / limit)}
+                >
+                  Next &rarr;
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          /* Initial Placeholder state */
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, gap: '20px', color: 'var(--color-text-secondary)' }}>
+            <BookOpen size={48} style={{ opacity: 0.6, color: 'var(--color-primary)' }} />
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--color-text)' }}>Research Basics Directory</h3>
+            <p style={{ maxWidth: '360px', textAlign: 'center', lineHeight: '1.6', fontSize: '0.925rem' }}>
+              Select a subject and topic from the left sidebar to browse academic research guides, guides on writing outlines, and article content.
+            </p>
+          </div>
+        )}
+      </main>
+
+      {/* Form Modals */}
+      <SubjectFormModal 
+        isOpen={subjectModalOpen}
+        onClose={() => setSubjectModalOpen(false)}
+        onSuccess={fetchSubjects}
+      />
+
+      <TopicFormModal 
+        isOpen={topicModalOpen}
+        onClose={() => setTopicModalOpen(false)}
+        onSuccess={handleTopicCreateSuccess}
+        subjectId={activeSubjectForTopicAdd}
+      />
+
+      <ArticleFormModal 
+        isOpen={articleModalOpen}
+        onClose={() => setArticleModalOpen(false)}
+        onSuccess={() => fetchArticles(selectedTopic.id, page)}
+        activeSubjectId={selectedSubject?.id}
+        activeTopicId={selectedTopic?.id}
+      />
+
+    </div>
+  );
+};
+
+export default KnowledgePage;

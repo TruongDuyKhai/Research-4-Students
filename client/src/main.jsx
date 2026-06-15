@@ -1,16 +1,18 @@
-import { initTheme } from './utils/theme';
-initTheme();
-
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import './styles/globals.css'
+import { ThemeProvider } from './contexts/ThemeContext'
+import { FeaturesProvider } from './contexts/FeaturesContext'
+import './i18n' // Initialize internationalization
+import './styles/theme.css' // Import styling variables
+import './styles/global.css' // Import global reset
 import App from './App.jsx'
-import { LanguageProvider } from './context/LanguageContext';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <LanguageProvider>
-      <App />
-    </LanguageProvider>
+    <FeaturesProvider>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </FeaturesProvider>
   </StrictMode>,
 )

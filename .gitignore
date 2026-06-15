@@ -1,39 +1,5 @@
-# ── Dependencies ──────────────────────────────────────────────────────────────
 node_modules/
-package-lock.json
-
-# ── Environment variables ─────────────────────────────────────────────────────
 .env
-.env.local
-.env.*.local
-
-# ── Build output ──────────────────────────────────────────────────────────────
-client/dist/
-client/build/
-
-# ── Database ──────────────────────────────────────────────────────────────────
-server/database.sqlite
-server/*.sqlite
-server/*.db
-
-# ── Uploads (local file storage — not tracked, served at runtime) ─────────────
-server/uploads/*
-!server/uploads/.gitkeep
-
-# ── Logs ──────────────────────────────────────────────────────────────────────
-logs/
-*.log
-npm-debug.log*
-
-# ── PM2 ───────────────────────────────────────────────────────────────────────
-ecosystem.config.js.bak
-.pm2/
-
-# ── OS / Editor ───────────────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# ── Vite cache ────────────────────────────────────────────────────────────────
-client/.vite/
+server/src/db/data/*.db
+dist/
+package-lock.json

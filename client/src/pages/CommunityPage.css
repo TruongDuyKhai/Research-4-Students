@@ -1,0 +1,823 @@
+/* Community Layout Scaffolding */
+.community-page-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Tabs Bar */
+.community-tabs-nav {
+  display: flex;
+  border-bottom: 2px solid var(--color-border);
+  gap: 24px;
+  background-color: var(--color-surface);
+  padding: 0 16px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.community-tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 16px 8px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  margin-bottom: -2px;
+}
+
+.community-tab-btn:hover {
+  color: var(--color-text);
+}
+
+.community-tab-btn.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* ==========================================
+   FORUM COMPOSER & CARDS
+   ========================================== */
+.forum-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.post-composer-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.composer-card-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.composer-error-alert {
+  background-color: #FEE2E2;
+  border: 1px solid #FCA5A5;
+  color: var(--color-danger);
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.composer-input-title {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  outline: none;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-weight: 600;
+  transition: border-color 0.2s;
+}
+
+.composer-input-title:focus {
+  border-color: var(--color-primary);
+}
+
+.composer-textarea-content {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  font-size: 0.95rem;
+  outline: none;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color 0.2s;
+}
+
+.composer-textarea-content:focus {
+  border-color: var(--color-primary);
+}
+
+/* Tag composer chips */
+.composer-tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  background-color: var(--color-bg);
+  gap: 8px;
+}
+
+.composer-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.composer-tag-chip {
+  background-color: var(--color-primary-bg);
+  color: var(--color-primary);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-remove-tag {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-remove-tag:hover {
+  background-color: var(--color-surface);
+}
+
+.composer-input-tag {
+  border: none;
+  outline: none;
+  background-color: transparent;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  flex-grow: 1;
+  min-width: 120px;
+}
+
+/* Image attachment upload/preview box */
+.composer-attachment-row {
+  display: flex;
+  align-items: center;
+}
+
+.attachment-preview-box {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  background-color: var(--color-bg);
+}
+
+.attachment-img-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.btn-remove-attachment {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: rgba(15, 23, 42, 0.6);
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-remove-attachment:hover {
+  background-color: rgba(220, 38, 38, 0.9);
+}
+
+.attachment-upload-btn-wrapper {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-trigger-upload {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-trigger-upload:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background-color: var(--color-primary-bg);
+}
+
+.file-input-hidden {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+.composer-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  border-top: 1px solid var(--color-border);
+  padding-top: 16px;
+}
+
+.cooldown-countdown-text {
+  font-size: 0.85rem;
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+.btn-submit-post {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  padding: 10px 24px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-submit-post:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.btn-submit-post:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Guest composition card */
+.guest-composer-banner {
+  background-color: var(--color-surface-alt);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  text-align: center;
+}
+
+.btn-guest-login {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  padding: 8px 20px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-guest-login:hover {
+  background-color: var(--color-primary-hover);
+}
+
+/* ==========================================
+   POSTS FEED LIST
+   ========================================== */
+.posts-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.post-feed-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.post-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.post-user-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--color-border);
+}
+
+.post-user-avatar-placeholder {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--color-primary-bg);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  border: 1px solid var(--color-border);
+}
+
+.post-user-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.post-user-display-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.post-user-username {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+
+.post-time-stamp {
+  font-size: 0.775rem;
+  color: var(--color-text-secondary);
+}
+
+/* Post Contents */
+.post-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.post-title-content {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.post-text-content {
+  font-size: 0.975rem;
+  color: var(--color-text);
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.post-content-image-wrapper {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-height: 400px;
+  background-color: var(--color-bg);
+  width: 100%;
+}
+
+.post-attached-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-height: 400px;
+  display: block;
+}
+
+.post-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.post-tag-chip {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: var(--color-primary-bg);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* Post Card Action buttons row */
+.post-card-actions {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+  gap: 16px;
+}
+
+.action-btn-react, .action-btn-comments, .action-btn-report {
+  background: none;
+  border: none;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn-react:hover {
+  background-color: #FFE4E6;
+  color: var(--color-danger);
+}
+
+.action-btn-react.liked {
+  color: var(--color-danger);
+}
+
+.action-btn-comments:hover {
+  background-color: var(--color-primary-bg);
+  color: var(--color-primary);
+}
+
+.action-btn-report {
+  margin-left: auto;
+  padding: 8px;
+}
+
+.action-btn-report:hover {
+  background-color: var(--color-surface-alt);
+  color: var(--color-warning);
+}
+
+/* Empty states */
+.forum-empty-state, .projects-empty-state {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 64px 32px;
+  text-align: center;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.forum-empty-state h3, .projects-empty-state h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0 0 8px 0;
+}
+
+.forum-empty-state p, .projects-empty-state p {
+  font-size: 0.925rem;
+  color: var(--color-text-secondary);
+  margin: 0;
+  max-width: 380px;
+  line-height: 1.6;
+}
+
+/* ==========================================
+   PROJECTS SECTION
+   ========================================== */
+.projects-tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Pending invites banner */
+.pending-invites-banner {
+  background-color: #EDE9FE;
+  border: 1px solid #DDD6FE;
+  border-left: 4px solid var(--badge-pro-text);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-card);
+}
+
+.invites-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invite-strip-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--color-surface);
+  border: 1px solid #E9D5FF;
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  gap: 16px;
+}
+
+.invite-text-desc {
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.invite-strip-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-invite-accept, .btn-invite-decline {
+  border: none;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-invite-accept {
+  background-color: var(--color-success);
+  color: #fff;
+}
+
+.btn-invite-accept:hover {
+  background-color: #15803D;
+}
+
+.btn-invite-decline {
+  background-color: var(--color-surface-alt);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
+.btn-invite-decline:hover {
+  background-color: #E2E8F0;
+  color: var(--color-text);
+}
+
+/* Section Header */
+.projects-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+}
+
+.section-panel-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0;
+}
+
+.section-panel-subtitle {
+  font-size: 0.925rem;
+  color: var(--color-text-secondary);
+  margin: 4px 0 0 0;
+}
+
+.btn-create-project-trigger {
+  background-color: var(--color-primary);
+  color: var(--color-on-primary);
+  border: none;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.1);
+  white-space: nowrap;
+}
+
+.btn-create-project-trigger:hover {
+  background-color: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+/* Grid of Projects */
+.projects-grid-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.project-grid-card {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 180px;
+}
+
+.project-grid-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-primary);
+  box-shadow: 0 6px 20px rgba(15,23,42,0.06);
+}
+
+.project-card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.project-status-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.project-status-badge.status-recruiting { background-color: #DCFCE7; color: #16A34A; }
+.project-status-badge.status-in_progress { background-color: #EFF6FF; color: #2563EB; }
+.project-status-badge.status-completed { background-color: #F1F5F9; color: #475569; }
+.project-status-badge.status-archived { background-color: #FEF3C7; color: #D97706; }
+
+.project-visibility-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.project-card-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.project-card-desc {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  flex-grow: 1;
+}
+
+.project-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--color-border);
+  padding-top: 12px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
+.project-owner-info {
+  display: flex;
+  gap: 4px;
+}
+
+.owner-label {
+  font-weight: 500;
+}
+
+.owner-name {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.project-members-count {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+/* Pagination general */
+.community-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.btn-community-page {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-community-page:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-community-page:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.community-page-indicator {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Responsive details */
+@media (max-width: 768px) {
+  .community-tabs-nav {
+    justify-content: space-between;
+    padding: 0;
+  }
+  
+  .community-tab-btn {
+    flex-grow: 1;
+    justify-content: center;
+  }
+
+  .post-composer-card {
+    padding: 16px;
+  }
+
+  .post-feed-card {
+    padding: 16px;
+  }
+
+  .projects-section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .btn-create-project-trigger {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .invite-strip-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .invite-strip-actions {
+    justify-content: flex-end;
+  }
+}

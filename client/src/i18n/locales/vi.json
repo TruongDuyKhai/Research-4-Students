@@ -1,0 +1,56 @@
+{
+  "nav": {
+    "home": "Trang chủ",
+    "resources": "Website nghiên cứu",
+    "knowledge": "Kiến thức nghiên cứu cơ bản",
+    "guides": "Hướng dẫn viết đề cương",
+    "community": "Cộng đồng nghiên cứu",
+    "profile": "Hồ sơ",
+    "admin": "Quản trị"
+  },
+  "common": {
+    "save": "Lưu",
+    "cancel": "Hủy",
+    "edit": "Sửa",
+    "delete": "Xóa",
+    "loading": "Đang tải...",
+    "search": "Tìm kiếm",
+    "new": "Mới",
+    "free": "Miễn phí",
+    "pro": "Pro",
+    "paid": "Trả phí"
+  },
+  "auth": {
+    "loginWithGoogle": "Đăng nhập bằng Google",
+    "teacherLogin": "Đăng nhập cho Giáo viên",
+    "adminLogin": "Đăng nhập cho Admin",
+    "logout": "Đăng xuất",
+    "loginWithEmail": "Đăng nhập bằng email",
+    "orDivider": "hoặc",
+    "email": "Email",
+    "password": "Mật khẩu",
+    "confirmPassword": "Xác nhận mật khẩu",
+    "displayName": "Tên hiển thị",
+    "register": "Tạo tài khoản",
+    "noAccount": "Chưa có tài khoản? Đăng ký",
+    "haveAccount": "Đã có tài khoản? Đăng nhập",
+    "gmailOnlyNote": "Chỉ chấp nhận địa chỉ @gmail.com. Các địa chỉ như name+anything@gmail.com hoặc n.a.m.e@gmail.com sẽ được coi là cùng 1 tài khoản."
+  },
+  "home": {
+    "heroSubtitle": "Cổng thông tin cộng tác nghiên cứu tối ưu dành cho sinh viên Đại học FPT.",
+    "exploreResources": "Khám phá tài nguyên",
+    "joinCommunity": "Tham gia cộng đồng",
+    "recommendedWebsites": "Website nghiên cứu đề xuất",
+    "viewAll": "Xem tất cả",
+    "visit": "Truy cập",
+    "emptyWebsites": "Chưa có website nghiên cứu nào — vui lòng quay lại sau!",
+    "researchBasics": "Kiến thức nghiên cứu cơ bản",
+    "researchBasicsDesc": "Các bài hướng dẫn, chủ đề và học liệu nền tảng về phương pháp nghiên cứu khoa học.",
+    "outlineGuides": "Hướng dẫn viết đề cương",
+    "outlineGuidesDesc": "Các hướng dẫn chi tiết, biểu mẫu và đề cương mẫu giúp viết thuyết minh đề tài.",
+    "browse": "Xem chi tiết",
+    "communityForum": "Diễn đàn cộng đồng",
+    "signInToJoin": "Đăng nhập để tham gia thảo luận",
+    "goToCommunity": "Đến Diễn đàn"
+  }
+}

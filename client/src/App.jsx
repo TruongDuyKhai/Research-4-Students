@@ -1,192 +1,159 @@
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from './context/AuthContext';
-import { SocketProvider } from './context/SocketContext';
-import Navbar from './components/Navbar';
-import Footer from './components/Footer';
-import api from './services/api';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
 
-// Views
-import Home from './views/Home';
-import Login from './views/Login';
-import Register from './views/Register';
-import Dashboard from './views/Dashboard';
-import Profile from './views/Profile';
-import CreateProject from './views/CreateProject';
-import ProjectDetails from './views/ProjectDetails';
-import AdminDashboard from './views/AdminDashboard';
-import AdminLogin from './views/AdminLogin';
-import Feed from './views/Feed';
-import Documents from './views/Documents';
-import QA from './views/QA';
-import QADetails from './views/QADetails';
-import Reviews from './views/Reviews';
-import Chat from './views/Chat';
+// Layouts
+import MainLayout from './layouts/MainLayout';
+import AuthLayout from './layouts/AuthLayout';
+import AdminLayout from './layouts/AdminLayout';
 
-// Route guards
-function ProtectedRoute({ children, allowedRoles }) {
+// Pages
+import HomePage from './pages/HomePage';
+import ResourcesPage from './pages/ResourcesPage';
+import ResourceDetailPage from './pages/ResourceDetailPage';
+import KnowledgePage from './pages/KnowledgePage';
+import ArticleDetailPage from './pages/ArticleDetailPage';
+import GuidesPage from './pages/GuidesPage';
+import GuideDetailPage from './pages/GuideDetailPage';
+import CommunityPage from './pages/CommunityPage';
+import PostDetailPage from './pages/PostDetailPage';
+import ProjectDetailPage from './pages/ProjectDetailPage';
+import ProfilePage from './pages/ProfilePage';
+import PublicProfilePage from './pages/PublicProfilePage';
+import SetUsernamePage from './pages/SetUsernamePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import TeacherLoginPage from './pages/TeacherLoginPage';
+import TeacherChangePasswordPage from './pages/TeacherChangePasswordPage';
+import AdminLoginPage from './pages/AdminLoginPage';
+
+// Admin Subpages
+import AdminHomePage from './pages/AdminHomePage';
+import AdminTeachersPage from './pages/AdminTeachersPage';
+import AdminUsersPage from './pages/AdminUsersPage';
+import AdminBanlistPage from './pages/AdminBanlistPage';
+import AdminReportsPage from './pages/AdminReportsPage';
+
+const adminRoute = import.meta.env.VITE_ADMIN_ROUTE || '/portal-mgmt-7f3a';
+const cleanAdminRoute = adminRoute.startsWith('/') ? adminRoute.substring(1) : adminRoute;
+
+// Inline Admin Wrapper: Renders AdminLoginPage if unauthenticated/non-admin, AdminLayout otherwise
+const AdminRouteWrapper = () => {
   const { user, loading } = useAuth();
-  const location = useLocation();
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', color: 'var(--text-secondary)' }}>
-        Loading session...
+      <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-secondary)' }}>
+        <span>Loading console...</span>
       </div>
     );
   }
 
-  if (!user) {
-    // Redirect to login but save the current location we were trying to go to
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
-
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return children;
-}
-
-function AdminRoute({ children }) {
-  const { user, loading: authLoading } = useAuth();
-  const [verifying, setVerifying] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const location = useLocation();
-
-  useEffect(() => {
-    const verifyAdmin = async () => {
-      if (authLoading) return;
-      if (!user || user.role !== 'admin') {
-        setIsAdmin(false);
-        setVerifying(false);
-        return;
-      }
-      try {
-        await api.get('/api/admin/verify');
-        setIsAdmin(true);
-      } catch (err) {
-        setIsAdmin(false);
-      } finally {
-        setVerifying(false);
-      }
-    };
-    verifyAdmin();
-  }, [user, authLoading]);
-
-  if (authLoading || verifying) {
+  if (!user || user.role !== 'admin') {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', color: 'var(--text-secondary)' }}>
-        Verifying administrator access...
+      <div className="auth-container">
+        <div className="auth-card">
+          <AdminLoginPage />
+        </div>
       </div>
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
-  }
+  return <AdminLayout />;
+};
 
-  if (!isAdmin) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return children;
-}
-
-function MainAppLayout() {
-  const location = useLocation();
-  const isAdminPath = location.pathname.startsWith('/admin');
-
+function App() {
   return (
-    <>
-      {!isAdminPath && <Navbar />}
-      <main className={isAdminPath ? "" : "main-content"}>
+    <AuthProvider>
+      <BrowserRouter>
         <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/community" element={<Feed />} />
-          
-          {/* Public Research Routes */}
-          <Route path="/research/documents" element={<Documents />} />
-          <Route path="/research/qa" element={<QA />} />
-          <Route path="/research/qa/:id" element={<QADetails />} />
-          <Route path="/research/reviews" element={<Reviews />} />
-          
-          {/* Aliases for convenience */}
-          <Route path="/documents" element={<Navigate to="/research/documents" replace />} />
-          <Route path="/qa" element={<Navigate to="/research/qa" replace />} />
-          <Route path="/reviews" element={<Navigate to="/research/reviews" replace />} />
+          {/* Main Layout containing pages with sidebar & topbar */}
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<HomePage />} />
+            
+            {/* Public and Resource Directory Routes */}
+            <Route path="resources" element={<ResourcesPage />} />
+            <Route path="resources/:id" element={<ResourceDetailPage />} />
+            <Route path="knowledge" element={<KnowledgePage />} />
+            <Route path="knowledge/articles/:id" element={<ArticleDetailPage />} />
+            <Route path="guides" element={<GuidesPage />} />
+            <Route path="guides/:id" element={<GuideDetailPage />} />
+            
+            {/* Community Routes (Require login for full feature usage) */}
+            <Route path="community" element={<CommunityPage defaultTab="forum" />} />
+            <Route path="community/posts/:id" element={<PostDetailPage />} />
+            
+            {/* Protected Collaborative Projects Area */}
+            <Route 
+              path="community/projects" 
+              element={
+                <ProtectedRoute roles={['student', 'teacher', 'admin']}>
+                  <CommunityPage defaultTab="projects" />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="community/projects/:id" 
+              element={
+                <ProtectedRoute roles={['student', 'teacher', 'admin']}>
+                  <ProjectDetailPage />
+                </ProtectedRoute>
+              } 
+            />
 
-          {/* Protected Routes */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/profile/:id" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/create-project" element={
-            <ProtectedRoute allowedRoles={['advisor', 'teacher', 'admin']}>
-              <CreateProject />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/project/:id" element={
-            <ProtectedRoute>
-              <ProjectDetails />
-            </ProtectedRoute>
-          } />
+            {/* Protected User Profile Settings */}
+            <Route 
+              path="profile" 
+              element={
+                <ProtectedRoute roles={['student', 'teacher', 'admin']}>
+                  <ProfilePage />
+                </ProtectedRoute>
+              } 
+            />
+            <Route path="u/:username" element={<PublicProfilePage />} />
+            
+            <Route 
+              path="set-username" 
+              element={
+                <ProtectedRoute roles={['student']}>
+                  <SetUsernamePage />
+                </ProtectedRoute>
+              } 
+            />
+          </Route>
 
-          <Route path="/chat" element={
-            <ProtectedRoute>
-              <Chat />
-            </ProtectedRoute>
-          } />
+          {/* Admin Dashboard Protected Group Router */}
+          <Route path={cleanAdminRoute} element={<AdminRouteWrapper />}>
+            <Route index element={<AdminHomePage />} />
+            <Route path="teachers" element={<AdminTeachersPage />} />
+            <Route path="users" element={<AdminUsersPage />} />
+            <Route path="banned-keywords" element={<AdminBanlistPage />} />
+            <Route path="reports" element={<AdminReportsPage />} />
+          </Route>
 
-          <Route path="/research/chat" element={
-            <ProtectedRoute>
-              <Chat />
-            </ProtectedRoute>
-          } />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLogin />} />
-          <Route path="/admin/dashboard/*" element={
-            <AdminRoute>
-              <AdminDashboard />
-            </AdminRoute>
-          } />
+          {/* Auth Layout containing simple centered login panels */}
+          <Route element={<AuthLayout />}>
+            <Route path="login" element={<LoginPage />} />
+            <Route path="register" element={<RegisterPage />} />
+            <Route path="teacher-login" element={<TeacherLoginPage />} />
+            
+            <Route 
+              path="teacher/change-password" 
+              element={
+                <ProtectedRoute roles={['teacher']}>
+                  <TeacherChangePasswordPage />
+                </ProtectedRoute>
+              } 
+            />
+          </Route>
 
-          {/* Fallback */}
+          {/* Fallback redirect to Home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </main>
-      {!isAdminPath && <Footer />}
-    </>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 
-export default function App() {
-  return (
-    <Router>
-      <AuthProvider>
-        <SocketProvider>
-          <MainAppLayout />
-        </SocketProvider>
-      </AuthProvider>
-    </Router>
-  );
-}
+export default App;

@@ -1,291 +1,763 @@
 const express = require('express');
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const { usersDb, moderationDb, communityDb, filesDb } = require('../db/connections');
+const { requireAuth, requireRole } = require('../middleware');
+const usersModel = require('../models/usersModel');
+
 const router = express.Router();
-const jwt = require('jsonwebtoken');
-const { db } = require('../config/db');
-const isAdmin = require('../middleware/isAdmin');
 
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your_access_secret_here';
+// Helper to format user objects in response (stripping password hash)
+function formatUser(user) {
+  if (!user) return null;
+  const formatted = { ...user };
+  delete formatted.password_hash;
+  formatted.must_change_password = !!formatted.must_change_password;
+  return formatted;
+}
 
-// POST /api/admin/login - Separate session using process.env
-router.post('/login', (req, res) => {
-  const { username, password } = req.body;
-
-  const adminUser = process.env.ADMIN_USERNAME || 'admin';
-  const adminPass = process.env.ADMIN_PASSWORD || 'admin123';
-
-  if (username === adminUser && password === adminPass) {
-    const token = jwt.sign({ role: 'admin' }, ACCESS_TOKEN_SECRET, { expiresIn: '8h' });
-    return res.json({ token });
+// Helper to get reporter info from usersDb
+function getReporterInfo(reporterId) {
+  if (reporterId === 0) {
+    return { id: 0, role: 'admin', username: 'admin', display_name: 'Admin' };
   }
-
-  return res.status(401).json({ error: 'Invalid administrator credentials.' });
-});
-
-// GET /api/admin/verify - Verify admin token
-router.get('/verify', isAdmin, (req, res) => {
-  res.json({ valid: true });
-});
-
-// Protect all following routes with isAdmin middleware
-router.use(isAdmin);
-
-// GET /api/admin/stats - Return stats with exact keys requested
-router.get('/stats', (req, res) => {
-  try {
-    const totalUsers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role != 'admin'").get().count;
-    const pendingTeachers = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'teacher' AND status = 'pending'").get().count;
-    const totalPosts = db.prepare('SELECT COUNT(*) as count FROM posts').get().count;
-    const totalDocs = db.prepare('SELECT COUNT(*) as count FROM documents').get().count;
-    const totalQuestions = db.prepare('SELECT COUNT(*) as count FROM qa_questions').get().count;
-    const totalReviews = db.prepare('SELECT COUNT(*) as count FROM reviews').get().count;
-
-    res.json({
-      total_users: totalUsers,
-      pending_teachers: pendingTeachers,
-      total_posts: totalPosts,
-      total_documents: totalDocs,
-      total_questions: totalQuestions,
-      total_reviews: totalReviews
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+  const user = usersDb.prepare('SELECT id, username, display_name, avatar_file_id FROM users WHERE id = ?').get(reporterId);
+  if (!user) return null;
+  let avatarUrl = null;
+  if (user.avatar_file_id) {
+    const file = filesDb.prepare('SELECT cdn_url FROM files WHERE id = ?').get(user.avatar_file_id);
+    avatarUrl = file ? file.cdn_url : null;
   }
-});
+  return {
+    id: user.id,
+    username: user.username,
+    display_name: user.display_name,
+    avatar_url: avatarUrl
+  };
+}
 
-// GET /api/admin/stats/weekly - New registrations per day this week (Mon–Sun)
-router.get('/stats/weekly', (req, res) => {
+// Apply admin protection to all routes in this router
+router.use(requireAuth, requireRole(['admin']));
+
+/* ==========================================
+   TEACHER MANAGEMENT
+   ========================================== */
+
+/**
+ * GET /api/admin/teachers
+ * List teachers with details and search query
+ */
+router.get('/teachers', (req, res) => {
+  const { search } = req.query;
+  const page = parseInt(req.query.page || '1', 10);
+  const limit = parseInt(req.query.limit || '10', 10);
+  const offset = (page - 1) * limit;
+
   try {
-    const rows = db.prepare(`
-      SELECT
-        strftime('%w', created_at) as day_of_week,
-        COUNT(*) as count
-      FROM users
-      WHERE created_at >= date('now', '-7 days')
-        AND role != 'admin'
-      GROUP BY day_of_week
-      ORDER BY day_of_week ASC
-    `).all();
-
-    // Map SQLite day 0(Sun)–6(Sat) → T2–CN order [1,2,3,4,5,6,0]
-    const order = [1, 2, 3, 4, 5, 6, 0];
-    const map = Object.fromEntries(rows.map(r => [r.day_of_week, r.count]));
-    const result = order.map(d => map[String(d)] || 0);
-    res.json(result);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// GET /api/admin/users?status=&role=&search= - Filtered/Paginated list of users
-router.get('/users', (req, res) => {
-  const { status, role, search } = req.query;
-  
-  try {
-    let sql = "SELECT id, full_name, username, email, role, status, avatar, major, created_at FROM users WHERE role != 'admin'";
+    let baseQuery = `
+      FROM users u
+      JOIN teacher_profiles tp ON u.id = tp.user_id
+      WHERE u.role = 'teacher'
+    `;
     const params = [];
 
+    if (search) {
+      baseQuery += ` AND (u.email LIKE ? OR u.username LIKE ? OR u.display_name LIKE ? OR tp.employee_code LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    const totalRow = usersDb.prepare(`SELECT COUNT(*) AS total ` + baseQuery).get(...params);
+    const total = totalRow ? totalRow.total : 0;
+
+    const queryParams = [...params, limit, offset];
+    const teachers = usersDb.prepare(`
+      SELECT u.*, tp.employee_code, tp.department, tp.created_by_admin_at
+      ` + baseQuery + `
+      ORDER BY u.created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(...queryParams);
+
+    const formattedTeachers = teachers.map(t => formatUser(t));
+
+    return res.status(200).json({
+      data: formattedTeachers,
+      pagination: {
+        page,
+        limit,
+        total
+      }
+    });
+  } catch (error) {
+    console.error('Failed to list teachers:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while listing teachers'
+      }
+    });
+  }
+});
+
+/**
+ * POST /api/admin/teachers
+ * Create a new teacher user with temporary password and profile
+ */
+router.post('/teachers', async (req, res) => {
+  const { email, display_name, employee_code, department, username } = req.body;
+
+  if (!email || !display_name || !employee_code || !department) {
+    return res.status(400).json({
+      error: {
+        code: 'BAD_REQUEST',
+        message: 'email, display_name, employee_code, and department are required'
+      }
+    });
+  }
+
+  // Validate unique constraints in usersDb
+  const existingEmail = usersDb.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  if (existingEmail) {
+    return res.status(409).json({
+      error: {
+        code: 'EMAIL_ALREADY_EXISTS',
+        message: 'A user with this email already exists'
+      }
+    });
+  }
+
+  const usernameToUse = username || employee_code;
+  const existingUsername = usersDb.prepare('SELECT id FROM users WHERE username = ?').get(usernameToUse);
+  if (existingUsername) {
+    return res.status(409).json({
+      error: {
+        code: 'USERNAME_ALREADY_EXISTS',
+        message: 'A user with this username already exists'
+      }
+    });
+  }
+
+  const existingCode = usersDb.prepare('SELECT user_id FROM teacher_profiles WHERE employee_code = ?').get(employee_code);
+  if (existingCode) {
+    return res.status(409).json({
+      error: {
+        code: 'EMPLOYEE_CODE_ALREADY_EXISTS',
+        message: 'A teacher profile with this employee code already exists'
+      }
+    });
+  }
+
+  try {
+    // Generate temporary password
+    const tempPassword = crypto.randomBytes(6).toString('hex');
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(tempPassword, salt);
+
+    // Call usersModel transactions to create teacher
+    const teacher = usersModel.createTeacher({
+      email,
+      password_hash: passwordHash,
+      username: usernameToUse,
+      display_name,
+      employee_code,
+      department
+    });
+
+    const teacherProfile = usersModel.getTeacherProfile(teacher.id);
+
+    return res.status(201).json({
+      data: {
+        user: {
+          ...formatUser(teacher),
+          employee_code: teacherProfile.employee_code,
+          department: teacherProfile.department
+        },
+        tempPassword
+      }
+    });
+  } catch (error) {
+    console.error('Failed to create teacher:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while creating teacher user'
+      }
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/teachers/:id
+ * Update teacher's core details
+ */
+router.patch('/teachers/:id', (req, res) => {
+  const { id } = req.params;
+  const { display_name, employee_code, department, email } = req.body;
+
+  try {
+    const teacher = usersDb.prepare("SELECT * FROM users WHERE id = ? AND role = 'teacher'").get(id);
+    if (!teacher) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Teacher not found'
+        }
+      });
+    }
+
+    const dbTransaction = usersDb.transaction(() => {
+      // Update core user attributes
+      const userUpdates = [];
+      const userValues = [];
+      if (display_name !== undefined) {
+        userUpdates.push('display_name = ?');
+        userValues.push(display_name);
+      }
+      if (email !== undefined) {
+        userUpdates.push('email = ?');
+        userValues.push(email);
+      }
+      if (userUpdates.length > 0) {
+        userUpdates.push("updated_at = datetime('now')");
+        userValues.push(id);
+        usersDb.prepare(`UPDATE users SET ${userUpdates.join(', ')} WHERE id = ?`).run(...userValues);
+      }
+
+      // Update teacher profile details
+      const profileUpdates = [];
+      const profileValues = [];
+      if (employee_code !== undefined) {
+        profileUpdates.push('employee_code = ?');
+        profileValues.push(employee_code);
+      }
+      if (department !== undefined) {
+        profileUpdates.push('department = ?');
+        profileValues.push(department);
+      }
+      if (profileUpdates.length > 0) {
+        profileValues.push(id);
+        usersDb.prepare(`UPDATE teacher_profiles SET ${profileUpdates.join(', ')} WHERE user_id = ?`).run(...profileValues);
+      }
+    });
+
+    dbTransaction();
+
+    const updatedUser = usersDb.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const updatedProfile = usersModel.getTeacherProfile(id);
+
+    return res.status(200).json({
+      data: {
+        ...formatUser(updatedUser),
+        employee_code: updatedProfile.employee_code,
+        department: updatedProfile.department
+      }
+    });
+  } catch (error) {
+    console.error('Failed to update teacher:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while updating teacher information'
+      }
+    });
+  }
+});
+
+/**
+ * POST /api/admin/teachers/:id/reset-password
+ * Reset teacher password to a temporary password
+ */
+router.post('/teachers/:id/reset-password', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const teacher = usersDb.prepare("SELECT * FROM users WHERE id = ? AND role = 'teacher'").get(id);
+    if (!teacher) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Teacher not found'
+        }
+      });
+    }
+
+    const tempPassword = crypto.randomBytes(6).toString('hex');
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(tempPassword, salt);
+
+    usersDb.prepare(`
+      UPDATE users 
+      SET password_hash = ?, must_change_password = 1, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(passwordHash, id);
+
+    return res.status(200).json({
+      data: {
+        tempPassword
+      }
+    });
+  } catch (error) {
+    console.error('Failed to reset teacher password:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while resetting password'
+      }
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/teachers/:id
+ * Administrative ban of teacher (soft deletion)
+ */
+router.delete('/teachers/:id', (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const teacher = usersDb.prepare("SELECT * FROM users WHERE id = ? AND role = 'teacher'").get(id);
+    if (!teacher) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Teacher not found'
+        }
+      });
+    }
+
+    usersDb.prepare("UPDATE users SET status = 'banned', updated_at = datetime('now') WHERE id = ?").run(id);
+
+    return res.status(200).json({
+      data: {
+        message: 'Teacher account banned successfully'
+      }
+    });
+  } catch (error) {
+    console.error('Failed to ban teacher account:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while banning teacher account'
+      }
+    });
+  }
+});
+
+/* ==========================================
+   USER MANAGEMENT
+   ========================================== */
+
+/**
+ * GET /api/admin/users
+ * List users (students by default) with filters
+ */
+router.get('/users', (req, res) => {
+  const roleFilter = req.query.role || 'student';
+  const { status, search } = req.query;
+  const page = parseInt(req.query.page || '1', 10);
+  const limit = parseInt(req.query.limit || '10', 10);
+  const offset = (page - 1) * limit;
+
+  try {
+    let baseQuery = `FROM users WHERE role = ?`;
+    const params = [roleFilter];
+
     if (status) {
-      sql += ' AND status = ?';
+      baseQuery += ` AND status = ?`;
       params.push(status);
     }
 
-    if (role) {
-      sql += ' AND role = ?';
-      params.push(role);
-    }
-
     if (search) {
-      sql += ' AND (full_name LIKE ? OR username LIKE ? OR email LIKE ?)';
-      const term = `%${search}%`;
-      params.push(term, term, term);
+      baseQuery += ` AND (email LIKE ? OR username LIKE ? OR display_name LIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
 
-    sql += ' ORDER BY created_at DESC';
+    const totalRow = usersDb.prepare(`SELECT COUNT(*) AS total ` + baseQuery).get(...params);
+    const total = totalRow ? totalRow.total : 0;
 
-    const users = db.prepare(sql).all(...params);
-    res.json(users);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
+    const queryParams = [...params, limit, offset];
+    const users = usersDb.prepare(`
+      SELECT *
+      ` + baseQuery + `
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(...queryParams);
 
-// PATCH /api/admin/users/:id/status - Update user status
-router.patch('/users/:id/status', (req, res) => {
-  const userId = req.params.id;
-  const { status } = req.body;
+    const formattedUsers = users.map(u => formatUser(u));
 
-  if (!['active', 'pending', 'banned'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid user status.' });
-  }
-
-  try {
-    const target = db.prepare('SELECT role FROM users WHERE id = ?').get(userId);
-    if (!target) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-    if (target.role === 'admin') {
-      return res.status(403).json({ error: 'Admin accounts cannot be modified.' });
-    }
-    db.prepare('UPDATE users SET status = ? WHERE id = ?').run(status, userId);
-    res.json({ message: 'User status updated successfully.', status });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// DELETE /api/admin/users/:id - Hard delete user and cascade
-router.delete('/users/:id', (req, res) => {
-  const userId = req.params.id;
-  try {
-    const target = db.prepare('SELECT role FROM users WHERE id = ?').get(userId);
-    if (!target) {
-      return res.status(404).json({ error: 'User not found.' });
-    }
-    if (target.role === 'admin') {
-      return res.status(403).json({ error: 'Admin accounts cannot be deleted.' });
-    }
-    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
-    res.json({ message: 'User deleted successfully.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// DELETE /api/admin/content/:type/:id - Delete any content item
-router.delete('/content/:type/:id', (req, res) => {
-  const { type, id } = req.params;
-
-  let tableName = '';
-  if (type === 'post') tableName = 'posts';
-  else if (type === 'document') tableName = 'documents';
-  else if (type === 'question') tableName = 'qa_questions';
-  else if (type === 'review') tableName = 'reviews';
-  else if (type === 'thread') tableName = 'forum_threads';
-  else {
-    return res.status(400).json({ error: 'Invalid content type.' });
-  }
-
-  try {
-    const result = db.prepare(`DELETE FROM ${tableName} WHERE id = ?`).run(id);
-    if (result.changes === 0) {
-      return res.status(404).json({ error: 'Content item not found.' });
-    }
-    res.json({ message: 'Content deleted successfully.' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// GET /api/admin/settings - Get settings map
-router.get('/settings', (req, res) => {
-  try {
-    const settings = db.prepare('SELECT * FROM site_settings').all();
-    res.json(settings);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// PATCH /api/admin/settings - Update site settings (max_accounts, site_name)
-router.patch('/settings', (req, res) => {
-  const { max_accounts, site_name } = req.body;
-
-  try {
-    const updateTransaction = db.transaction(() => {
-      if (max_accounts !== undefined) {
-        db.prepare(`
-          INSERT OR REPLACE INTO site_settings (key, value)
-          VALUES ('max_accounts', ?)
-        `).run(String(max_accounts));
-      }
-      if (site_name !== undefined) {
-        db.prepare(`
-          INSERT OR REPLACE INTO site_settings (key, value)
-          VALUES ('site_name', ?)
-        `).run(String(site_name));
+    return res.status(200).json({
+      data: formattedUsers,
+      pagination: {
+        page,
+        limit,
+        total
       }
     });
-
-    updateTransaction();
-    res.json({ message: 'Settings updated successfully.' });
-  } catch (err) {
-    console.error('Settings patch error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+  } catch (error) {
+    console.error('Failed to list users:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while listing users'
+      }
+    });
   }
 });
 
-// GET /api/admin/posts
-router.get('/posts', (req, res) => {
+/**
+ * PATCH /api/admin/users/:id/status
+ * Ban/Unban user account
+ */
+router.patch('/users/:id/status', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status || !['active', 'banned'].includes(status)) {
+    return res.status(400).json({
+      error: {
+        code: 'BAD_REQUEST',
+        message: "status must be either 'active' or 'banned'"
+      }
+    });
+  }
+
   try {
-    const items = db.prepare(`
-      SELECT p.id, p.content, p.tag, p.likes, p.created_at,
-             u.full_name as author_name
-      FROM posts p
-      JOIN users u ON p.user_id = u.id
-      ORDER BY p.created_at DESC
-    `).all();
-    res.json(items);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    const user = usersDb.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'User not found'
+        }
+      });
+    }
+
+    usersDb.prepare("UPDATE users SET status = ?, updated_at = datetime('now') WHERE id = ?").run(status, id);
+
+    const updatedUser = usersDb.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    return res.status(200).json({
+      data: formatUser(updatedUser)
+    });
+  } catch (error) {
+    console.error('Failed to update user status:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while updating user status'
+      }
+    });
   }
 });
 
-// GET /api/admin/documents
-router.get('/documents', (req, res) => {
+/* ==========================================
+   BANNED KEYWORDS (BLACKLIST)
+   ========================================== */
+
+/**
+ * GET /api/admin/banned-keywords
+ * List all banned keywords in blacklist
+ */
+router.get('/banned-keywords', (req, res) => {
   try {
-    const items = db.prepare(`
-      SELECT d.id, d.title, d.subject, d.type, d.downloads, d.created_at,
-             u.full_name as author_name
-      FROM documents d
-      JOIN users u ON d.user_id = u.id
-      ORDER BY d.created_at DESC
-    `).all();
-    res.json(items);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    const keywords = moderationDb.prepare('SELECT * FROM banned_keywords ORDER BY keyword ASC').all();
+    return res.status(200).json({
+      data: keywords
+    });
+  } catch (error) {
+    console.error('Failed to list banned keywords:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while fetching banned keywords'
+      }
+    });
   }
 });
 
-// GET /api/admin/qa
-router.get('/qa', (req, res) => {
+/**
+ * POST /api/admin/banned-keywords
+ * Add a keyword to the blacklist
+ */
+router.post('/banned-keywords', (req, res) => {
+  const { keyword, match_type } = req.body;
+  const matchTypeToUse = match_type || 'contains';
+
+  if (!keyword) {
+    return res.status(400).json({
+      error: {
+        code: 'BAD_REQUEST',
+        message: 'keyword is required'
+      }
+    });
+  }
+
+  if (!['contains', 'exact', 'regex'].includes(matchTypeToUse)) {
+    return res.status(400).json({
+      error: {
+        code: 'BAD_REQUEST',
+        message: "match_type must be either 'contains', 'exact', or 'regex'"
+      }
+    });
+  }
+
   try {
-    const items = db.prepare(`
-      SELECT q.id, q.title, q.content, q.subject, q.created_at,
-             u.full_name as author_name
-      FROM qa_questions q
-      JOIN users u ON q.user_id = u.id
-      ORDER BY q.created_at DESC
-    `).all();
-    res.json(items);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    const existing = moderationDb.prepare('SELECT id FROM banned_keywords WHERE keyword = ?').get(keyword);
+    if (existing) {
+      return res.status(409).json({
+        error: {
+          code: 'KEYWORD_EXISTS',
+          message: 'This keyword is already in the blacklist'
+        }
+      });
+    }
+
+    const info = moderationDb.prepare(`
+      INSERT INTO banned_keywords (keyword, match_type, created_by)
+      VALUES (?, ?, 0)
+    `).run(keyword, matchTypeToUse);
+
+    const created = moderationDb.prepare('SELECT * FROM banned_keywords WHERE id = ?').get(info.lastInsertRowid);
+    return res.status(201).json({
+      data: created
+    });
+  } catch (error) {
+    console.error('Failed to create banned keyword:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while adding banned keyword'
+      }
+    });
   }
 });
 
-// GET /api/admin/reviews
-router.get('/reviews', (req, res) => {
+/**
+ * DELETE /api/admin/banned-keywords/:id
+ * Remove a keyword from the blacklist
+ */
+router.delete('/banned-keywords/:id', (req, res) => {
+  const { id } = req.params;
+
   try {
-    const items = db.prepare(`
-      SELECT r.id, r.content, r.rating, r.subject_code, r.subject_name, r.created_at,
-             u.full_name as author_name
-      FROM reviews r
-      JOIN users u ON r.user_id = u.id
-      ORDER BY r.created_at DESC
-    `).all();
-    res.json(items);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    const result = moderationDb.prepare('DELETE FROM banned_keywords WHERE id = ?').run(id);
+    if (result.changes === 0) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Banned keyword not found'
+        }
+      });
+    }
+
+    return res.status(200).json({
+      data: {
+        message: 'Banned keyword deleted successfully'
+      }
+    });
+  } catch (error) {
+    console.error('Failed to delete banned keyword:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while deleting banned keyword'
+      }
+    });
+  }
+});
+
+/* ==========================================
+   VIOLATION REPORTS
+   ========================================== */
+
+/**
+ * GET /api/admin/reports
+ * List moderation reports
+ */
+router.get('/reports', (req, res) => {
+  const statusFilter = req.query.status || 'pending';
+  const page = parseInt(req.query.page || '1', 10);
+  const limit = parseInt(req.query.limit || '10', 10);
+  const offset = (page - 1) * limit;
+
+  try {
+    const baseQuery = `FROM reports WHERE status = ?`;
+    const totalRow = moderationDb.prepare(`SELECT COUNT(*) AS total ` + baseQuery).get(statusFilter);
+    const total = totalRow ? totalRow.total : 0;
+
+    const reports = moderationDb.prepare(`
+      SELECT *
+      ` + baseQuery + `
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `).all(statusFilter, limit, offset);
+
+    const detailedReports = reports.map(r => {
+      let postId = null;
+      let targetContent = null;
+      try {
+        if (r.target_type === 'post') {
+          const post = communityDb.prepare('SELECT id, title, content FROM posts WHERE id = ?').get(r.target_id);
+          if (post) {
+            postId = post.id;
+            targetContent = post.title || post.content;
+          }
+        } else if (r.target_type === 'comment') {
+          const comment = communityDb.prepare('SELECT id, post_id, content FROM comments WHERE id = ?').get(r.target_id);
+          if (comment) {
+            postId = comment.post_id;
+            targetContent = comment.content;
+          }
+        }
+      } catch (err) {
+        console.error('Failed to look up target for report:', err);
+      }
+      return {
+        ...r,
+        postId,
+        targetContent,
+        reporter: getReporterInfo(r.reporter_id)
+      };
+    });
+
+    return res.status(200).json({
+      data: detailedReports,
+      pagination: {
+        page,
+        limit,
+        total
+      }
+    });
+  } catch (error) {
+    console.error('Failed to list reports:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while listing reports'
+      }
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/reports/:id
+ * Resolve/Dismiss moderation report
+ */
+router.patch('/reports/:id', (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status || !['resolved', 'dismissed'].includes(status)) {
+    return res.status(400).json({
+      error: {
+        code: 'BAD_REQUEST',
+        message: "status must be either 'resolved' or 'dismissed'"
+      }
+    });
+  }
+
+  try {
+    const report = moderationDb.prepare('SELECT * FROM reports WHERE id = ?').get(id);
+    if (!report) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Report not found'
+        }
+      });
+    }
+
+    moderationDb.prepare('UPDATE reports SET status = ? WHERE id = ?').run(status, id);
+
+    const updatedReport = moderationDb.prepare('SELECT * FROM reports WHERE id = ?').get(id);
+    return res.status(200).json({
+      data: {
+        ...updatedReport,
+        reporter: getReporterInfo(updatedReport.reporter_id)
+      }
+    });
+  } catch (error) {
+    console.error('Failed to update report:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while updating report status'
+      }
+    });
+  }
+});
+
+/* ==========================================
+   QUICK CONTENT MODERATION (HIDE)
+   ========================================== */
+
+/**
+ * PATCH /api/admin/community/posts/:id/hide
+ * Hide a post administratively
+ */
+router.patch('/community/posts/:id/hide', (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const post = communityDb.prepare('SELECT * FROM posts WHERE id = ?').get(id);
+    if (!post) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Post not found'
+        }
+      });
+    }
+
+    communityDb.prepare("UPDATE posts SET status = 'hidden', updated_at = datetime('now') WHERE id = ?").run(id);
+
+    return res.status(200).json({
+      data: {
+        message: 'Post has been hidden successfully'
+      }
+    });
+  } catch (error) {
+    console.error('Failed to hide post administratively:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while hiding post'
+      }
+    });
+  }
+});
+
+/**
+ * PATCH /api/admin/community/comments/:id/hide
+ * Hide a comment administratively
+ */
+router.patch('/community/comments/:id/hide', (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const comment = communityDb.prepare('SELECT * FROM comments WHERE id = ?').get(id);
+    if (!comment) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'Comment not found'
+        }
+      });
+    }
+
+    communityDb.prepare("UPDATE comments SET status = 'hidden' WHERE id = ?").run(id);
+
+    return res.status(200).json({
+      data: {
+        message: 'Comment has been hidden successfully'
+      }
+    });
+  } catch (error) {
+    console.error('Failed to hide comment administratively:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while hiding comment'
+      }
+    });
   }
 });
 

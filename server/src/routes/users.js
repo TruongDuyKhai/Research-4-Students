@@ -1,169 +1,329 @@
 const express = require('express');
-const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const { db } = require('../config/db');
-const { authenticateToken } = require('../middleware/auth');
-const { uploadFile } = require('../bot/discordBot');
+const { usersDb, filesDb } = require('../db/connections');
+const usersModel = require('../models/usersModel');
+const { requireAuth, requireRole } = require('../middleware/auth');
+const { uploadFile } = require('../services/discordStorage');
+const features = require('../config/features');
 
-// In-memory storage — files go directly to Discord CDN
+const router = express.Router();
+const maxUploadSizeMb = parseInt(process.env.MAX_UPLOAD_SIZE_MB || '10', 10);
+
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
-  fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp/;
-    if (allowed.test(path.extname(file.originalname).toLowerCase()) &&
-        allowed.test(file.mimetype)) {
-      return cb(null, true);
-    }
-    cb(new Error('Only image files are allowed.'));
+  limits: {
+    fileSize: maxUploadSizeMb * 1024 * 1024
   }
+}).single('file');
+
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const USERNAME_REGEX = /^[a-z0-9_]{3,20}$/;
+
+/**
+ * Middleware to restrict action from Admin role since admin does not have a database profile record.
+ */
+const blockAdmin = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    return res.status(403).json({
+      error: {
+        code: 'FORBIDDEN',
+        message: 'Admin role is not permitted to perform profile tasks'
+      }
+    });
+  }
+  next();
+};
+
+/**
+ * Fetch the complete user profile including joined avatar file URLs and teacher details
+ * @param {number} userId
+ * @returns {object|null}
+ */
+function getFullUserProfile(userId) {
+  const profile = usersDb.prepare(`
+    SELECT 
+      u.id, u.role, u.email, u.must_change_password, u.username, u.display_name, 
+      u.avatar_file_id, u.bio, u.language_pref, u.theme_pref, u.status, u.created_at, u.updated_at,
+      tp.employee_code, tp.department
+    FROM users u
+    LEFT JOIN teacher_profiles tp ON u.id = tp.user_id
+    WHERE u.id = ?
+  `).get(userId);
+
+  if (profile) {
+    profile.avatar_url = null;
+    if (profile.avatar_file_id) {
+      const file = filesDb.prepare('SELECT cdn_url FROM files WHERE id = ?').get(profile.avatar_file_id);
+      if (file) profile.avatar_url = file.cdn_url;
+    }
+    if (profile.role !== 'teacher') {
+      delete profile.employee_code;
+      delete profile.department;
+    }
+    profile.must_change_password = !!profile.must_change_password;
+  }
+  return profile;
+}
+
+/**
+ * GET /api/users/me
+ * Fetch authenticated user's profile
+ */
+router.get('/me', requireAuth, blockAdmin, (req, res) => {
+  const profile = getFullUserProfile(req.user.id);
+  if (!profile) {
+    return res.status(404).json({
+      error: {
+        code: 'NOT_FOUND',
+        message: 'User profile not found'
+      }
+    });
+  }
+  return res.status(200).json({ data: profile });
 });
 
-// GET /api/users/check-username - Check username availability (Public)
-router.get('/check-username', (req, res) => {
-  const { username } = req.query;
-  if (!username) {
-    return res.status(400).json({ error: 'Username parameter is required.' });
-  }
-
+/**
+ * PATCH /api/users/me
+ * Update allowed profile fields based on role
+ */
+router.patch('/me', requireAuth, blockAdmin, (req, res) => {
   try {
-    const user = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    res.json({ available: !user });
-  } catch (err) {
-    console.error('Check username error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
+    const { display_name, bio, language_pref, theme_pref } = req.body;
 
-// GET /api/users/profile/:id - Fetch profile details (for advisors/teachers or students)
-router.get('/profile/:id', authenticateToken, (req, res) => {
-  const profileId = req.params.id;
-
-  try {
-    const user = db.prepare('SELECT id, username, email, role, full_name, avatar, major, created_at FROM users WHERE id = ? OR username = ?').get(profileId, profileId);
-    if (!user) {
-      return res.status(404).json({ error: 'User profile not found.' });
-    }
-
-    let extraData = {};
-    if (user.role === 'advisor' || user.role === 'teacher') {
-      // Fetch research projects created by this advisor
-      extraData.projects = db.prepare(`
-        SELECT p.*, (SELECT COUNT(*) FROM project_members pm WHERE pm.project_id = p.id) as current_members
-        FROM projects p 
-        WHERE p.created_by = ?
-        ORDER BY p.created_at DESC
-      `).all(profileId);
-    } else if (user.role === 'student') {
-      // Fetch projects the student is a member of
-      extraData.projects = db.prepare(`
-        SELECT p.*, pm.joined_at, u.full_name as advisor_name
-        FROM project_members pm
-        JOIN projects p ON pm.project_id = p.id
-        JOIN users u ON p.created_by = u.id
-        WHERE pm.user_id = ?
-        ORDER BY pm.joined_at DESC
-      `).all(profileId);
-
-      // If viewing their own student profile, also fetch applications
-      if (req.user.id == profileId) {
-        extraData.applications = db.prepare(`
-          SELECT a.*, p.title as project_title, p.department as project_department, u.full_name as advisor_name
-          FROM applications a
-          JOIN projects p ON a.project_id = p.id
-          JOIN users u ON p.created_by = u.id
-          WHERE a.user_id = ?
-          ORDER BY a.applied_at DESC
-        `).all(profileId);
+    if (req.user.role === 'teacher') {
+      if (display_name !== undefined || bio !== undefined) {
+        return res.status(422).json({
+          error: {
+            code: 'FIELD_LOCKED',
+            message: 'Teachers are not permitted to change display name or bio'
+          }
+        });
       }
     }
 
-    // Fetch user contribution feeds
-    extraData.posts = db.prepare(`
-      SELECT p.*, u.full_name, u.username, u.avatar, u.role,
-             (SELECT COUNT(*) FROM post_comments pc WHERE pc.post_id = p.id) as comments_count,
-             (SELECT COUNT(*) FROM post_likes pl WHERE pl.post_id = p.id AND pl.user_id = ?) as liked
-      FROM posts p
-      JOIN users u ON p.user_id = u.id
-      WHERE p.user_id = ?
-      ORDER BY p.created_at DESC
-    `).all(req.user.id, profileId);
+    const updates = {};
+    if (language_pref !== undefined) updates.language_pref = language_pref;
+    if (theme_pref !== undefined) updates.theme_pref = theme_pref;
 
-    extraData.documents = db.prepare(`
-      SELECT d.*, u.username, u.avatar, u.full_name
-      FROM documents d
-      JOIN users u ON d.user_id = u.id
-      WHERE d.user_id = ?
-      ORDER BY d.created_at DESC
-    `).all(profileId);
+    if (req.user.role === 'student') {
+      if (display_name !== undefined) updates.display_name = display_name;
+      if (bio !== undefined) updates.bio = bio;
+    }
 
-    extraData.questions = db.prepare(`
-      SELECT q.*, u.username, u.avatar, u.full_name,
-             (SELECT COUNT(*) FROM qa_answers a WHERE a.question_id = q.id) as answer_count,
-             (SELECT COUNT(*) FROM qa_answers a WHERE a.question_id = q.id AND a.is_accepted = 1) as hasAccepted
-      FROM qa_questions q
-      JOIN users u ON q.user_id = u.id
-      WHERE q.user_id = ?
-      ORDER BY q.created_at DESC
-    `).all(profileId);
+    usersModel.updateUser(req.user.id, updates);
 
-    res.json({
-      profile: user,
-      ...extraData
+    const updatedProfile = getFullUserProfile(req.user.id);
+    return res.status(200).json({ data: updatedProfile });
+  } catch (error) {
+    console.error('Failed to update user profile:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while updating the profile'
+      }
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
 
-// PUT /api/users/profile - Update current user profile
-router.put('/profile', authenticateToken, (req, res) => {
-  const userId = req.user.id;
-  const { fullName, major } = req.body;
-
-  if (!fullName) {
-    return res.status(400).json({ error: 'Full name is required.' });
-  }
-
+/**
+ * PUT /api/users/me/username
+ * Set username for student (one-time setup)
+ */
+router.put('/me/username', requireAuth, requireRole('student'), blockAdmin, (req, res) => {
   try {
-    db.prepare(`
-      UPDATE users 
-      SET full_name = ?, major = ?
-      WHERE id = ?
-    `).run(fullName, major || '', userId);
+    const { username } = req.body;
 
-    const updatedUser = db.prepare('SELECT id, username, email, role, full_name, avatar, major FROM users WHERE id = ?').get(userId);
-    res.json(updatedUser);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    if (!username || !USERNAME_REGEX.test(username)) {
+      return res.status(400).json({
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'Username must be 3-20 characters long and contain only lowercase letters, numbers, and underscores'
+        }
+      });
+    }
+
+    const currentUser = usersModel.findById(req.user.id);
+    if (currentUser.username !== null) {
+      return res.status(400).json({
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'Username has already been set and cannot be changed'
+        }
+      });
+    }
+
+    const existingUser = usersModel.findByUsername(username);
+    if (existingUser) {
+      return res.status(409).json({
+        error: {
+          code: 'UNIQUE_VIOLATION',
+          message: 'Username is already taken'
+        }
+      });
+    }
+
+    usersModel.updateUser(req.user.id, { username });
+
+    const updatedProfile = getFullUserProfile(req.user.id);
+    return res.status(200).json({ data: updatedProfile });
+  } catch (error) {
+    console.error('Failed to set username:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while setting the username'
+      }
+    });
   }
 });
 
-// POST /api/users/upload-avatar - Upload avatar image to Discord CDN (Protected)
-router.post('/upload-avatar', authenticateToken, (req, res) => {
-  upload.single('avatar')(req, res, async (err) => {
-    if (err) return res.status(400).json({ error: err.message });
-    if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+/**
+ * GET /api/users/check-username
+ * Check if a username is valid and available (public)
+ */
+router.get('/check-username', (req, res) => {
+  const { value } = req.query;
+
+  if (!value || !USERNAME_REGEX.test(value)) {
+    return res.status(200).json({
+      data: { available: false }
+    });
+  }
+
+  const existingUser = usersModel.findByUsername(value);
+  return res.status(200).json({
+    data: { available: !existingUser }
+  });
+});
+
+/**
+ * POST /api/users/me/avatar
+ * Upload avatar image and reference it on user profile
+ */
+router.post('/me/avatar', requireAuth, blockAdmin, (req, res, next) => {
+  if (!features.discordStorage) {
+    return res.status(503).json({
+      error: { code: 'FEATURE_DISABLED', message: 'File uploads are not configured on this server yet.' }
+    });
+  }
+  upload(req, res, async (err) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({
+            error: {
+              code: 'FILE_TOO_LARGE',
+              message: `Max ${maxUploadSizeMb}MB`
+            }
+          });
+        }
+        return res.status(400).json({
+          error: {
+            code: 'UPLOAD_ERROR',
+            message: err.message
+          }
+        });
+      }
+      return next(err);
+    }
+
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({
+        error: {
+          code: 'BAD_REQUEST',
+          message: 'No file provided under field name "file"'
+        }
+      });
+    }
+
+    if (!IMAGE_TYPES.includes(file.mimetype)) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_FILE_TYPE',
+          message: 'Avatar must be an image (PNG, JPEG, WEBP)'
+        }
+      });
+    }
 
     try {
-      const ext = path.extname(req.file.originalname);
-      const filename = `avatar-${req.user.id}-${Date.now()}${ext}`;
+      const dbRecord = await uploadFile({
+        buffer: file.buffer,
+        filename: file.originalname,
+        mimetype: file.mimetype,
+        purpose: 'avatar',
+        uploaderId: req.user.id
+      });
 
-      const { messageId, fileUrl } = await uploadFile(req.file.buffer, filename);
+      usersModel.updateUser(req.user.id, { avatar_file_id: dbRecord.id });
 
-      db.prepare(`
-        UPDATE users SET avatar = ?, avatar_message_id = ? WHERE id = ?
-      `).run(fileUrl, messageId, req.user.id);
-
-      res.json({ avatarUrl: fileUrl });
-    } catch (uploadErr) {
-      console.error('[upload-avatar]', uploadErr);
-      res.status(500).json({ error: 'Failed to upload avatar.' });
+      return res.status(200).json({
+        data: {
+          avatar_file_id: dbRecord.id,
+          avatar_url: dbRecord.cdn_url
+        }
+      });
+    } catch (uploadError) {
+      console.error('Failed to upload avatar:', uploadError.message);
+      return res.status(500).json({
+        error: {
+          code: 'UPLOAD_FAILED',
+          message: 'Failed to upload avatar to Discord CDN'
+        }
+      });
     }
   });
+});
+
+/**
+ * GET /api/users/:username
+ * Fetch public user profile (public access, strips email)
+ */
+router.get('/:username', (req, res) => {
+  const { username } = req.params;
+
+  try {
+    const profile = usersDb.prepare(`
+      SELECT 
+        u.username, u.display_name, u.bio, u.role, u.created_at, u.avatar_file_id,
+        tp.department
+      FROM users u
+      LEFT JOIN teacher_profiles tp ON u.id = tp.user_id
+      WHERE u.username = ?
+    `).get(username);
+
+    if (!profile) {
+      return res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'User profile not found'
+        }
+      });
+    }
+
+    profile.avatar_url = null;
+    if (profile.avatar_file_id) {
+      const file = filesDb.prepare('SELECT cdn_url FROM files WHERE id = ?').get(profile.avatar_file_id);
+      if (file) profile.avatar_url = file.cdn_url;
+    }
+    delete profile.avatar_file_id;
+
+    if (profile.role !== 'teacher') {
+      delete profile.department;
+    }
+
+    return res.status(200).json({
+      data: profile
+    });
+  } catch (error) {
+    console.error('Failed to retrieve user profile:', error.message);
+    return res.status(500).json({
+      error: {
+        code: 'SERVER_ERROR',
+        message: 'An error occurred while retrieving the profile'
+      }
+    });
+  }
 });
 
 module.exports = router;

@@ -1,213 +1,501 @@
-const express = require('express');
+const express = require("express");
+const bcrypt = require("bcryptjs");
+const { OAuth2Client } = require("google-auth-library");
+const usersModel = require("../models/usersModel");
+const { signToken } = require("../utils/jwt");
+const { requireAuth, requireRole } = require("../middleware/auth");
+const { authLimiter, verifyTurnstile } = require("../middleware");
+const {
+    normalizeGmailEmail,
+    isGmailAddress,
+} = require("../utils/emailNormalize");
+const features = require('../config/features');
+
 const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { db } = require('../config/db');
-const { authenticateToken } = require('../middleware/auth');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your_access_secret_here';
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your_refresh_secret_here';
-
-// Helper to generate access token (15 minutes)
-function generateAccessToken(user) {
-  const payload = { id: user.id, username: user.username, role: user.role };
-  return jwt.sign(payload, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
+/**
+ * Helper to strip password hashes and format the user object in API responses
+ */
+function formatUser(user) {
+    if (!user) return null;
+    const formatted = { ...user };
+    delete formatted.password_hash;
+    // Convert sqlite integer boolean must_change_password to true/false
+    formatted.must_change_password = !!formatted.must_change_password;
+    return formatted;
 }
 
-// Helper to generate refresh token (7 days)
-function generateRefreshToken(user) {
-  const payload = { id: user.id, username: user.username, role: user.role };
-  return jwt.sign(payload, REFRESH_TOKEN_SECRET, { expiresIn: '7d' });
-}
-
-// Cookie options for HTTP-only refresh token
-const cookieOptions = {
-  httpOnly: true,
-  secure: false, // Set to true if running in HTTPS
-  sameSite: 'lax',
-  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
-};
-
-// POST /api/auth/register
-router.post('/register', (req, res) => {
-  const { full_name, username, email, password, role, major } = req.body;
-
-  // Validate inputs
-  if (!full_name || full_name.trim() === '') {
-    return res.status(400).json({ error: 'Full name is required.' });
-  }
-  if (!username || username.trim() === '') {
-    return res.status(400).json({ error: 'Username is required.' });
-  }
-  if (!email || email.trim() === '') {
-    return res.status(400).json({ error: 'Email is required.' });
-  }
-  if (!password || password.length < 6) {
-    return res.status(400).json({ error: 'Password is required and must be at least 6 characters long.' });
-  }
-  if (!role || !['student', 'teacher'].includes(role)) {
-    return res.status(400).json({ error: "Role must be 'student' or 'teacher'." });
-  }
-
-  try {
-    // Validate uniqueness of username and email
-    const usernameExists = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    if (usernameExists) {
-      return res.status(409).json({ error: 'Username is already taken.' });
+/**
+ * POST /api/auth/google
+ * Student Sign in/up with Google
+ */
+router.post("/google", async (req, res) => {
+    if (!features.googleAuth) {
+        return res.status(503).json({
+            error: { code: 'FEATURE_DISABLED', message: 'Google sign-in is not configured on this server yet.' }
+        });
     }
 
-    const emailExists = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
-    if (emailExists) {
-      return res.status(409).json({ error: 'Email is already registered.' });
-    }
-
-    const passwordHash = bcrypt.hashSync(password, 10);
-
-    // If role is teacher: set status = pending, do not issue tokens
-    if (role === 'teacher') {
-      db.prepare(`
-        INSERT INTO users (full_name, username, email, password, role, status, avatar, major)
-        VALUES (?, ?, ?, ?, 'teacher', 'pending', '/uploads/avatar_default.png', ?)
-      `).run(full_name, username, email, passwordHash, major || '');
-
-      return res.status(201).json({ message: 'Awaiting admin approval' });
-    }
-
-    // If role is student: check site_settings max_accounts
-    const maxAccountsSetting = db.prepare("SELECT value FROM site_settings WHERE key = 'max_accounts'").get();
-    const maxAccounts = maxAccountsSetting ? parseInt(maxAccountsSetting.value) : 0;
-
-    if (maxAccounts !== 0) {
-      const activeUsersCount = db.prepare("SELECT COUNT(*) as count FROM users WHERE status = 'active'").get().count;
-      if (activeUsersCount >= maxAccounts) {
-        return res.status(403).json({ error: 'Registration is currently closed' });
-      }
-    }
-
-    // Insert student (defaults status = active)
-    const result = db.prepare(`
-      INSERT INTO users (full_name, username, email, password, role, status, avatar, major)
-      VALUES (?, ?, ?, ?, 'student', 'active', '/uploads/avatar_default.png', ?)
-    `).run(full_name, username, email, passwordHash, major || '');
-
-    const user = db.prepare('SELECT id, full_name, username, email, role, status, avatar, major FROM users WHERE id = ?').get(result.lastInsertRowid);
-    
-    // Issue access + refresh tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    res.cookie('refreshToken', refreshToken, cookieOptions);
-    res.status(201).json({ user, accessToken });
-
-  } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// POST /api/auth/login
-router.post('/login', (req, res) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password are required.' });
-  }
-
-  try {
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid username or password.' });
-    }
-
-    // Check account status
-    if (user.status === 'pending') {
-      return res.status(403).json({ error: 'Account awaiting admin approval' });
-    }
-    if (user.status === 'banned') {
-      return res.status(403).json({ error: 'Account has been banned' });
-    }
-
-    // Block admin accounts from logging in via the regular login page
-    if (user.role === 'admin') {
-      return res.status(403).json({ error: 'Admin accounts must log in via the admin panel.' });
-    }
-
-    // Verify password
-    if (!bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: 'Invalid username or password.' });
-    }
-
-    // Remove password before returning
-    delete user.password;
-
-    // Issue tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-
-    res.cookie('refreshToken', refreshToken, cookieOptions);
-    res.json({ user, accessToken });
-
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
-});
-
-// POST /api/auth/refresh
-router.post('/refresh', (req, res) => {
-  const token = req.cookies ? req.cookies.refreshToken : null;
-
-  if (!token) {
-    return res.status(401).json({ error: 'Refresh token is missing. Please log in.' });
-  }
-
-  jwt.verify(token, REFRESH_TOKEN_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired refresh token.' });
+    const { credential } = req.body;
+    if (!credential) {
+        return res.status(400).json({
+            error: {
+                code: "INVALID_GOOGLE_TOKEN",
+                message: "No Google credential token provided",
+            },
+        });
     }
 
     try {
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(decoded.id);
-      if (!user) {
-        return res.status(403).json({ error: 'User not found.' });
-      }
+        const ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+        const payload = ticket.getPayload();
+        const googleId = payload["sub"];
+        const email = payload["email"];
+        const name = payload["name"];
 
-      if (user.status !== 'active') {
-        return res.status(403).json({ error: 'User account is not active.' });
-      }
+        let user = usersModel.findByGoogleId(googleId);
 
-      const accessToken = generateAccessToken(user);
-      res.json({ accessToken });
-    } catch (dbErr) {
-      console.error('Token refresh db error:', dbErr);
-      res.status(500).json({ error: 'Internal Server Error' });
+        if (!user) {
+            // If user with this email already exists but doesn't have googleId linked
+            user = usersModel.findByEmail(email);
+            if (user) {
+                user = usersModel.updateUser(user.id, { google_id: googleId });
+            } else {
+                user = usersModel.createStudent({
+                    email,
+                    google_id: googleId,
+                    display_name: name,
+                });
+            }
+        }
+
+        if (user.status === "banned") {
+            return res.status(403).json({
+                error: {
+                    code: "ACCOUNT_BANNED",
+                    message: "This account has been banned",
+                },
+            });
+        }
+
+        const token = signToken({
+            id: user.id,
+            role: user.role,
+            username: user.username,
+        });
+
+        return res.status(200).json({
+            data: {
+                token,
+                user: formatUser(user),
+                needsUsername: !user.username,
+            },
+        });
+    } catch (error) {
+        return res.status(400).json({
+            error: {
+                code: "INVALID_GOOGLE_TOKEN",
+                message: "Failed to verify Google ID token",
+            },
+        });
     }
-  });
 });
 
-// POST /api/auth/logout
-router.post('/logout', (req, res) => {
-  res.clearCookie('refreshToken', {
-    httpOnly: true,
-    secure: false,
-    sameSite: 'lax',
-    path: '/'
-  });
-  res.json({ message: 'Logged out successfully.' });
+/**
+ * POST /api/auth/teacher/login
+ * Teacher Login via Email + Password
+ */
+router.post("/teacher/login", async (req, res) => {
+    const { email, password } = req.body;
+    if (!email || !password) {
+        return res.status(400).json({
+            error: {
+                code: "INVALID_CREDENTIALS",
+                message: "Email and password are required",
+            },
+        });
+    }
+
+    const user = usersModel.findByEmail(email);
+    if (!user || user.role !== "teacher") {
+        return res.status(401).json({
+            error: {
+                code: "INVALID_CREDENTIALS",
+                message: "Invalid email or password",
+            },
+        });
+    }
+
+    // Check password hash
+    if (!user.password_hash) {
+        return res.status(401).json({
+            error: {
+                code: "INVALID_CREDENTIALS",
+                message: "Invalid email or password",
+            },
+        });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+    if (!isPasswordValid) {
+        return res.status(401).json({
+            error: {
+                code: "INVALID_CREDENTIALS",
+                message: "Invalid email or password",
+            },
+        });
+    }
+
+    // Check status
+    if (user.status === "banned") {
+        return res.status(403).json({
+            error: {
+                code: "ACCOUNT_BANNED",
+                message: "This account has been banned",
+            },
+        });
+    }
+
+    const token = signToken({
+        id: user.id,
+        role: user.role,
+        username: user.username,
+    });
+
+    return res.status(200).json({
+        data: {
+            token,
+            user: formatUser(user),
+            mustChangePassword: !!user.must_change_password,
+        },
+    });
 });
 
-// GET /api/auth/me
-router.get('/me', authenticateToken, (req, res) => {
-  try {
-    const user = db.prepare('SELECT id, full_name, username, email, role, status, avatar, major, created_at FROM users WHERE id = ?').get(req.user.id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found.' });
+/**
+ * POST /api/auth/admin/login
+ * Admin Login via Env Credentials
+ */
+router.post("/admin/login", (req, res) => {
+    const { email, password } = req.body;
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword) {
+        return res.status(500).json({
+            error: {
+                code: "SERVER_ERROR",
+                message: "Admin credentials are not configured on the server",
+            },
+        });
     }
-    res.json(user);
-  } catch (err) {
-    console.error('Fetch me database error:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
-  }
+
+    if (email !== adminEmail || password !== adminPassword) {
+        return res.status(401).json({
+            error: {
+                code: "INVALID_CREDENTIALS",
+                message: "Invalid email or password",
+            },
+        });
+    }
+
+    const token = signToken({ id: 0, role: "admin", username: "admin" });
+
+    return res.status(200).json({
+        data: {
+            token,
+            user: {
+                id: 0,
+                role: "admin",
+                username: "admin",
+            },
+        },
+    });
+});
+
+/**
+ * POST /api/auth/change-password
+ * Change password for Teacher role (must be authenticated)
+ */
+router.post(
+    "/change-password",
+    requireAuth,
+    requireRole("teacher"),
+    async (req, res) => {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({
+                error: {
+                    code: "INVALID_CREDENTIALS",
+                    message: "Current password and new password are required",
+                },
+            });
+        }
+
+        // Fetch fresh user data just in case
+        const user = usersModel.findById(req.user.id);
+        if (!user || !user.password_hash) {
+            return res.status(401).json({
+                error: {
+                    code: "INVALID_CREDENTIALS",
+                    message: "User authentication failed",
+                },
+            });
+        }
+
+        const isPasswordValid = await bcrypt.compare(
+            currentPassword,
+            user.password_hash,
+        );
+        if (!isPasswordValid) {
+            return res.status(400).json({
+                error: {
+                    code: "INVALID_CREDENTIALS",
+                    message: "Current password is incorrect",
+                },
+            });
+        }
+
+        // Hash new password and update
+        const salt = await bcrypt.genSalt(10);
+        const newHash = await bcrypt.hash(newPassword, salt);
+        usersModel.setPasswordHash(user.id, newHash);
+
+        return res.status(200).json({
+            data: {
+                message: "Password changed successfully",
+            },
+        });
+    },
+);
+
+/**
+ * HẠN CHẾ HỆ THỐNG (LIMITATION NOTE):
+ * Vì không tích hợp dịch vụ gửi email, hệ thống không có chức năng "quên mật khẩu" cho sinh viên đăng ký bằng email/password.
+ * Nếu sinh viên quên mật khẩu, họ có thể đăng nhập lại bằng "Sign in with Google" nếu Gmail đó từng được dùng để
+ * đăng nhập Google (2 phương thức đăng nhập tự động liên kết theo cùng email đã chuẩn hóa), hoặc liên hệ Admin.
+ */
+/**
+ * POST /api/auth/student/register
+ * Student Registration via Gmail + Password
+ */
+router.post(
+    "/student/register",
+    authLimiter,
+    /* verifyTurnstile, */ async (req, res) => {
+        const { email, password, display_name } = req.body;
+
+        // a. Required fields validation
+        if (!email || !password || !display_name) {
+            return res.status(400).json({
+                error: {
+                    code: "BAD_REQUEST",
+                    message: "email, password and display_name are required",
+                },
+            });
+        }
+
+        // b. Password strength validation
+        if (password.length < 8) {
+            return res.status(400).json({
+                error: {
+                    code: "WEAK_PASSWORD",
+                    message: "Password must be at least 8 characters long",
+                },
+            });
+        }
+
+        // c. Email format regex validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({
+                error: {
+                    code: "INVALID_EMAIL_FORMAT",
+                    message: "Invalid email format",
+                },
+            });
+        }
+
+        // d. Domain limitation check (Gmail only)
+        if (!isGmailAddress(email)) {
+            return res.status(400).json({
+                error: {
+                    code: "INVALID_EMAIL_DOMAIN",
+                    message: "Only Gmail addresses (@gmail.com) are accepted",
+                },
+            });
+        }
+
+        try {
+            // e. Email unique normalization check
+            const normalizedEmail = normalizeGmailEmail(email);
+            const existingUser = usersModel.findByEmail(normalizedEmail);
+            if (existingUser) {
+                return res.status(409).json({
+                    error: {
+                        code: "EMAIL_ALREADY_EXISTS",
+                        message:
+                            "An account with this Gmail address already exists. Try logging in instead (with Email or Google).",
+                    },
+                });
+            }
+
+            // Success validation flow: hash password and insert
+            const salt = await bcrypt.genSalt(10);
+            const hash = await bcrypt.hash(password, salt);
+            const user = usersModel.createStudentWithPassword({
+                email: normalizedEmail,
+                password_hash: hash,
+                display_name,
+            });
+
+            const token = signToken({
+                id: user.id,
+                role: "student",
+                username: null,
+            });
+
+            return res.status(201).json({
+                data: {
+                    token,
+                    user: formatUser(user),
+                    needsUsername: true,
+                },
+            });
+        } catch (error) {
+            console.error("Failed to register student:", error.message);
+            return res.status(500).json({
+                error: {
+                    code: "SERVER_ERROR",
+                    message: "An error occurred during registration",
+                },
+            });
+        }
+    },
+);
+
+/**
+ * POST /api/auth/student/login
+ * Student Login via Gmail + Password
+ */
+router.post(
+    "/student/login",
+    authLimiter,
+    /* verifyTurnstile, */
+    async (req, res) => {
+        const { email, password } = req.body;
+
+        if (!email || !password) {
+            return res.status(400).json({
+                error: {
+                    code: "BAD_REQUEST",
+                    message: "Email and password are required",
+                },
+            });
+        }
+
+        try {
+            const normalizedEmail = normalizeGmailEmail(email);
+            const user = usersModel.findByEmail(normalizedEmail);
+
+            // Validate account existence, role, and password existence
+            if (!user || user.role !== "student" || !user.password_hash) {
+                return res.status(401).json({
+                    error: {
+                        code: "INVALID_CREDENTIALS",
+                        message: "Invalid email or password",
+                    },
+                });
+            }
+
+            // Verify password match
+            const isPasswordValid = await bcrypt.compare(
+                password,
+                user.password_hash,
+            );
+            if (!isPasswordValid) {
+                return res.status(401).json({
+                    error: {
+                        code: "INVALID_CREDENTIALS",
+                        message: "Invalid email or password",
+                    },
+                });
+            }
+
+            // Verify ban status
+            if (user.status === "banned") {
+                return res.status(403).json({
+                    error: {
+                        code: "ACCOUNT_BANNED",
+                        message: "This account has been banned",
+                    },
+                });
+            }
+
+            // Generate JWT session
+            const token = signToken({
+                id: user.id,
+                role: "student",
+                username: user.username,
+            });
+
+            return res.status(200).json({
+                data: {
+                    token,
+                    user: formatUser(user),
+                    needsUsername: !user.username,
+                },
+            });
+        } catch (error) {
+            console.error("Failed to log in student:", error.message);
+            return res.status(500).json({
+                error: {
+                    code: "SERVER_ERROR",
+                    message: "An error occurred during login",
+                },
+            });
+        }
+    },
+);
+
+/**
+ * GET /api/auth/me
+ * Retrieve profile information for current session user
+ */
+router.get("/me", requireAuth, (req, res) => {
+    if (req.user.id === 0) {
+        return res.status(200).json({
+            data: req.user,
+        });
+    }
+
+    const freshUser = usersModel.findById(req.user.id);
+    if (!freshUser) {
+        return res.status(404).json({
+            error: {
+                code: "NOT_FOUND",
+                message: "User profile not found",
+            },
+        });
+    }
+
+    // Extra status check if updated in DB after token sign
+    if (freshUser.status === "banned") {
+        return res.status(403).json({
+            error: {
+                code: "ACCOUNT_BANNED",
+                message: "This account has been banned",
+            },
+        });
+    }
+
+    return res.status(200).json({
+        data: formatUser(freshUser),
+    });
 });
 
 module.exports = router;
