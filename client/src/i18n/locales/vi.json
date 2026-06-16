@@ -218,14 +218,29 @@
     "backToStudent": "← Quay lại trang đăng nhập sinh viên"
   },
   "knowledgePage": {
+    "browseSubjects": "Xem chủ đề",
+    "subjectsTitle": "Chủ đề",
     "noSubjects": "Chưa có chủ đề nào.",
     "addSubjectTitle": "Thêm chủ đề",
+    "addSubjectBtn": "Thêm chủ đề",
     "addTopicTitle": "Thêm chuyên đề",
+    "editSubjectTitle": "Sửa chủ đề",
+    "deleteSubjectTitle": "Xóa chủ đề",
+    "editTopicTitle": "Sửa chuyên đề",
+    "deleteTopicTitle": "Xóa chuyên đề",
+    "noTopics": "Chưa có chuyên đề",
     "newArticle": "Bài viết mới",
     "createFirstArticle": "Tạo bài viết đầu tiên",
     "noArticles": "Chưa có bài viết nào trong chuyên đề này.",
     "noTextContent": "Chưa có nội dung văn bản.",
-    "createdLabel": "Ngày tạo:"
+    "createdLabel": "Ngày tạo:",
+    "prevPage": "Trước",
+    "nextPage": "Tiếp",
+    "pageInfo": "Trang {{page}} / {{total}}",
+    "placeholderTitle": "Thư mục Kiến thức Nghiên cứu",
+    "placeholderDesc": "Chọn một chủ đề và chuyên đề từ thanh bên trái để xem hướng dẫn nghiên cứu, hướng dẫn viết đề cương và nội dung bài viết.",
+    "placeholderAdminDesc": "Bắt đầu bằng cách thêm chủ đề ở thanh bên, sau đó thêm chuyên đề và bài viết.",
+    "addFirstSubject": "Thêm chủ đề đầu tiên"
   },
   "knowledge": {
     "subjectModal": {

@@ -217,25 +217,24 @@ const KnowledgePage = () => {
       
       {/* Sidebar 220px listing subjects/topics */}
       <aside className="knowledge-sidebar">
+        <div className="sidebar-title-row">
+          <span className="sidebar-title">{t('knowledgePage.subjectsTitle')}</span>
+          {isTeacherOrAdmin && (
+            <button
+              className="btn-add-subject"
+              onClick={() => {
+                setSubjectToEdit(null);
+                setSubjectModalOpen(true);
+              }}
+              title={t('knowledgePage.addSubjectTitle')}
+            >
+              <Plus size={16} />
+            </button>
+          )}
+        </div>
+
         <details className="knowledge-subject-nav" defaultOpen={window.innerWidth > 768}>
-          <summary>Browse subjects</summary>
-          <div className="sidebar-title-row">
-            <span className="sidebar-title">Subjects</span>
-            {isTeacherOrAdmin && (
-              <button 
-                className="btn-add-subject" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  setSubjectToEdit(null);
-                  setSubjectModalOpen(true);
-                }}
-                title={t('knowledgePage.addSubjectTitle')}
-              >
-                <Plus size={16} />
-              </button>
-            )}
-          </div>
+          <summary>{t('knowledgePage.browseSubjects')}</summary>
 
           {loadingSubjects ? (
             <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>{t('common.loading')}</div>
@@ -249,7 +248,7 @@ const KnowledgePage = () => {
 
                 return (
                   <div key={sub.id} className="subject-item">
-                    <button 
+                    <button
                       className="subject-header"
                       onClick={(e) => handleSubjectToggle(e, sub)}
                     >
@@ -262,7 +261,7 @@ const KnowledgePage = () => {
                       {isTeacherOrAdmin && (
                         <div className="subject-actions">
                           {isExpanded && (
-                            <button 
+                            <button
                               className="btn-add-topic"
                               onClick={(e) => {
                                 e.preventDefault();
@@ -276,7 +275,7 @@ const KnowledgePage = () => {
                               <Plus size={12} />
                             </button>
                           )}
-                          <button 
+                          <button
                             className="btn-edit-subject"
                             onClick={(e) => {
                               e.preventDefault();
@@ -284,18 +283,18 @@ const KnowledgePage = () => {
                               setSubjectToEdit(sub);
                               setSubjectModalOpen(true);
                             }}
-                            title="Edit Subject"
+                            title={t('knowledgePage.editSubjectTitle')}
                           >
                             <Pencil size={12} />
                           </button>
-                          <button 
+                          <button
                             className="btn-delete-subject"
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
                               handleDeleteSubject(sub);
                             }}
-                            title="Delete Subject"
+                            title={t('knowledgePage.deleteSubjectTitle')}
                           >
                             <Trash2 size={12} />
                           </button>
@@ -308,7 +307,7 @@ const KnowledgePage = () => {
                       <div className="topics-sublist">
                         {topicsList.length === 0 ? (
                           <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', padding: '4px 8px' }}>
-                            No topics
+                            {t('knowledgePage.noTopics')}
                           </span>
                         ) : (
                           topicsList.map((topic) => (
@@ -321,7 +320,7 @@ const KnowledgePage = () => {
                               </button>
                               {isTeacherOrAdmin && (
                                 <div className="topic-actions">
-                                  <button 
+                                  <button
                                     className="btn-edit-topic"
                                     onClick={(e) => {
                                       e.preventDefault();
@@ -330,18 +329,18 @@ const KnowledgePage = () => {
                                       setActiveSubjectForTopicAdd(sub.id);
                                       setTopicModalOpen(true);
                                     }}
-                                    title="Edit Topic"
+                                    title={t('knowledgePage.editTopicTitle')}
                                   >
                                     <Pencil size={10} />
                                   </button>
-                                  <button 
+                                  <button
                                     className="btn-delete-topic"
                                     onClick={(e) => {
                                       e.preventDefault();
                                       e.stopPropagation();
                                       handleDeleteTopic(sub, topic);
                                     }}
-                                    title="Delete Topic"
+                                    title={t('knowledgePage.deleteTopicTitle')}
                                   >
                                     <Trash2 size={10} />
                                   </button>
@@ -439,7 +438,7 @@ const KnowledgePage = () => {
             {/* Paging */}
             {total > limit && (
               <div className="pagination-row">
-                <button 
+                <button
                   className="btn-page"
                   onClick={() => {
                     const prev = page - 1;
@@ -448,12 +447,12 @@ const KnowledgePage = () => {
                   }}
                   disabled={page === 1}
                 >
-                  &larr; Prev
+                  &larr; {t('knowledgePage.prevPage')}
                 </button>
                 <span className="page-indicator">
-                  Page {page} of {Math.ceil(total / limit)}
+                  {t('knowledgePage.pageInfo', { page, total: Math.ceil(total / limit) })}
                 </span>
-                <button 
+                <button
                   className="btn-page"
                   onClick={() => {
                     const next = page + 1;
@@ -462,7 +461,7 @@ const KnowledgePage = () => {
                   }}
                   disabled={page >= Math.ceil(total / limit)}
                 >
-                  Next &rarr;
+                  {t('knowledgePage.nextPage')} &rarr;
                 </button>
               </div>
             )}
@@ -471,10 +470,22 @@ const KnowledgePage = () => {
           /* Initial Placeholder state */
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flexGrow: 1, gap: '20px', color: 'var(--color-text-secondary)' }}>
             <BookOpen size={48} style={{ opacity: 0.6, color: 'var(--color-primary)' }} />
-            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--color-text)' }}>Research Basics Directory</h3>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--color-text)' }}>{t('knowledgePage.placeholderTitle')}</h3>
             <p style={{ maxWidth: '360px', textAlign: 'center', lineHeight: '1.6', fontSize: '0.925rem' }}>
-              Select a subject and topic from the left sidebar to browse academic research guides, guides on writing outlines, and article content.
+              {isTeacherOrAdmin ? t('knowledgePage.placeholderAdminDesc') : t('knowledgePage.placeholderDesc')}
             </p>
+            {isTeacherOrAdmin && subjects.length === 0 && !loadingSubjects && (
+              <button
+                className="btn-new-article"
+                onClick={() => {
+                  setSubjectToEdit(null);
+                  setSubjectModalOpen(true);
+                }}
+              >
+                <Plus size={16} />
+                <span>{t('knowledgePage.addFirstSubject')}</span>
+              </button>
+            )}
           </div>
         )}
       </main>

@@ -218,14 +218,29 @@
     "backToStudent": "← Back to Student Login"
   },
   "knowledgePage": {
+    "browseSubjects": "Browse subjects",
+    "subjectsTitle": "Subjects",
     "noSubjects": "No subjects added yet.",
     "addSubjectTitle": "Add Subject",
+    "addSubjectBtn": "Add Subject",
     "addTopicTitle": "Add Topic",
+    "editSubjectTitle": "Edit Subject",
+    "deleteSubjectTitle": "Delete Subject",
+    "editTopicTitle": "Edit Topic",
+    "deleteTopicTitle": "Delete Topic",
+    "noTopics": "No topics",
     "newArticle": "New Article",
     "createFirstArticle": "Create first article",
     "noArticles": "No articles under this topic yet.",
     "noTextContent": "No text content available.",
-    "createdLabel": "Created:"
+    "createdLabel": "Created:",
+    "prevPage": "Prev",
+    "nextPage": "Next",
+    "pageInfo": "Page {{page}} of {{total}}",
+    "placeholderTitle": "Research Basics Directory",
+    "placeholderDesc": "Select a subject and topic from the left sidebar to browse academic research guides, guides on writing outlines, and article content.",
+    "placeholderAdminDesc": "Start by adding a subject in the sidebar, then add topics and articles.",
+    "addFirstSubject": "Add First Subject"
   },
   "knowledge": {
     "subjectModal": {
