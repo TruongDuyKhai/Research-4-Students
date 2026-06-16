@@ -28,9 +28,9 @@ const ResourceDetailPage = () => {
     } catch (err) {
       console.error('Failed to get resource detail:', err);
       if (err.response?.status === 404) {
-        setErrorMsg('Research website not found.');
+        setErrorMsg(t('resources.errorNotFound'));
       } else {
-        setErrorMsg('An error occurred while loading details.');
+        setErrorMsg(t('resources.errorDetail'));
       }
     } finally {
       setLoading(false);
@@ -43,13 +43,13 @@ const ResourceDetailPage = () => {
 
   const handleDelete = async () => {
     if (!resource) return;
-    if (window.confirm(`Are you sure you want to delete "${resource.name}"?`)) {
+    if (window.confirm(t('resources.confirmDelete', { name: resource.name }))) {
       try {
         await client.delete(`/resources/${id}`);
         navigate('/resources');
       } catch (err) {
         console.error('Failed to delete resource:', err);
-        alert('Failed to delete research website. Please try again.');
+        alert(t('resources.errorDeleteFail'));
       }
     }
   };
@@ -70,7 +70,7 @@ const ResourceDetailPage = () => {
         <span>{errorMsg || 'Failed to load details.'}</span>
         <button className="btn-detail-edit" onClick={() => navigate('/resources')}>
           <ArrowLeft size={16} />
-          <span>Back to List</span>
+          <span>{t('resources.detail.backToList')}</span>
         </button>
       </div>
     );
@@ -81,13 +81,13 @@ const ResourceDetailPage = () => {
       
       {/* Back button */}
       <div>
-        <button 
-          className="btn-detail-edit" 
+        <button
+          className="btn-detail-edit"
           onClick={() => navigate('/resources')}
           style={{ width: 'fit-content' }}
         >
           <ArrowLeft size={16} />
-          <span>Back to List</span>
+          <span>{t('resources.detail.backToList')}</span>
         </button>
       </div>
 
@@ -121,30 +121,30 @@ const ResourceDetailPage = () => {
           <div className="detail-header-actions">
             {canModify() && (
               <>
-                <button 
+                <button
                   className="btn-detail-edit"
                   onClick={() => setModalOpen(true)}
                 >
                   <Edit2 size={16} />
-                  <span>Edit</span>
+                  <span>{t('resources.detail.edit')}</span>
                 </button>
-                <button 
+                <button
                   className="btn-detail-delete"
                   onClick={handleDelete}
                 >
                   <Trash2 size={16} />
-                  <span>Delete</span>
+                  <span>{t('resources.detail.delete')}</span>
                 </button>
               </>
             )}
-            
-            <a 
-              href={resource.url} 
-              target="_blank" 
-              rel="noopener noreferrer" 
+
+            <a
+              href={resource.url}
+              target="_blank"
+              rel="noopener noreferrer"
               className="btn-primary"
             >
-              <span>Visit Website</span>
+              <span>{t('resources.detail.visitWebsite')}</span>
               <ExternalLink size={16} />
             </a>
           </div>
@@ -153,16 +153,16 @@ const ResourceDetailPage = () => {
         {/* Content Description */}
         <div className="detail-content">
           <div className="detail-desc-block">
-            <h4 className="detail-desc-title">About this resource</h4>
+            <h4 className="detail-desc-title">{t('resources.detail.about')}</h4>
             <p className="detail-desc-text">{resource.full_description}</p>
           </div>
 
           {/* Dynamic Chip Blocks */}
           <div className="detail-info-block">
-            
+
             {/* Target Audience */}
             <div className="info-column">
-              <h4 className="info-title">Target Audience</h4>
+              <h4 className="info-title">{t('resources.detail.targetAudience')}</h4>
               {resource.target_audience && resource.target_audience.length > 0 ? (
                 <div className="info-chips">
                   {resource.target_audience.map((tag) => (
@@ -173,14 +173,14 @@ const ResourceDetailPage = () => {
                 </div>
               ) : (
                 <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-                  No target audience tags defined.
+                  {t('resources.detail.noAudience')}
                 </span>
               )}
             </div>
 
             {/* Key Features */}
             <div className="info-column">
-              <h4 className="info-title">Key Features</h4>
+              <h4 className="info-title">{t('resources.detail.keyFeatures')}</h4>
               {resource.features && resource.features.length > 0 ? (
                 <ul className="info-list">
                   {resource.features.map((feature) => (
@@ -191,7 +191,7 @@ const ResourceDetailPage = () => {
                 </ul>
               ) : (
                 <span style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', paddingLeft: '20px' }}>
-                  No key features listed.
+                  {t('resources.detail.noFeatures')}
                 </span>
               )}
             </div>

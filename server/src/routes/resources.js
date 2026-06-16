@@ -64,7 +64,7 @@ router.get('/', (req, res) => {
     // Get rows
     const queryParams = [...params, limit, offset];
     const list = resourcesDb.prepare(`
-      SELECT rw.id, rw.name, rw.url, rw.short_description, rw.access_type, rw.icon_file_id
+      SELECT rw.id, rw.name, rw.url, rw.short_description, rw.access_type, rw.icon_file_id, rw.created_by
       ` + baseQuery + `
       ORDER BY rw.created_at DESC
       LIMIT ? OFFSET ?
@@ -83,7 +83,8 @@ router.get('/', (req, res) => {
         url: item.url,
         short_description: item.short_description,
         access_type: item.access_type,
-        icon_url: iconUrl
+        icon_url: iconUrl,
+        created_by: item.created_by
       };
     });
 

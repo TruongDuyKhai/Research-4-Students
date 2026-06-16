@@ -230,7 +230,7 @@ const KnowledgePage = () => {
                   setSubjectToEdit(null);
                   setSubjectModalOpen(true);
                 }}
-                title="Add Subject"
+                title={t('knowledgePage.addSubjectTitle')}
               >
                 <Plus size={16} />
               </button>
@@ -238,9 +238,9 @@ const KnowledgePage = () => {
           </div>
 
           {loadingSubjects ? (
-            <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>Loading...</div>
+            <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>{t('common.loading')}</div>
           ) : subjects.length === 0 ? (
-            <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>No subjects added yet.</div>
+            <div style={{ fontSize: '0.825rem', color: 'var(--color-text-secondary)' }}>{t('knowledgePage.noSubjects')}</div>
           ) : (
             <div className="subjects-list">
               {subjects.map((sub) => {
@@ -271,7 +271,7 @@ const KnowledgePage = () => {
                                 setActiveSubjectForTopicAdd(sub.id);
                                 setTopicModalOpen(true);
                               }}
-                              title="Add Topic"
+                              title={t('knowledgePage.addTopicTitle')}
                             >
                               <Plus size={12} />
                             </button>
@@ -378,7 +378,7 @@ const KnowledgePage = () => {
                   onClick={() => setArticleModalOpen(true)}
                 >
                   <Plus size={16} />
-                  <span>New Article</span>
+                  <span>{t('knowledgePage.newArticle')}</span>
                 </button>
               )}
             </div>
@@ -389,15 +389,15 @@ const KnowledgePage = () => {
             ) : articles.length === 0 ? (
               <div className="empty-state" style={{ minHeight: '300px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
                 <FileText size={40} style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }} />
-                <span>No articles under this topic yet.</span>
+                <span>{t('knowledgePage.noArticles')}</span>
                 {isTeacherOrAdmin && (
-                  <button 
+                  <button
                     className="btn-new-article"
                     onClick={() => setArticleModalOpen(true)}
                     style={{ marginTop: '8px' }}
                   >
                     <Plus size={16} />
-                    <span>Create first article</span>
+                    <span>{t('knowledgePage.createFirstArticle')}</span>
                   </button>
                 )}
               </div>
@@ -419,12 +419,12 @@ const KnowledgePage = () => {
                       )}
                     </div>
                     <p className="article-snippet">
-                      {art.content 
+                      {art.content
                         ? art.content.replace(/[#*`_]/g, '') // strip markdown markers for snippet
-                        : 'No text content available.'}
+                        : t('knowledgePage.noTextContent')}
                     </p>
                     <div className="article-meta-row">
-                      <span>Created: {new Date(art.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
+                      <span>{t('knowledgePage.createdLabel')} {new Date(art.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
                       {isTeacherOrAdmin && (
                         <span className={`article-status-badge status-${art.status}`}>
                           {art.status}

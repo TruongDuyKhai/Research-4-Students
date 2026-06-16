@@ -87,18 +87,16 @@ const GuidesPage = () => {
       {/* Header Row */}
       <div className="guides-header-row">
         <div className="guides-title-block">
-          <h2 className="guides-title">Research Guides Library</h2>
-          <p className="guides-subtitle">
-            Comprehensive outlines, templates, and guidelines to help write FPT University research proposals.
-          </p>
+          <h2 className="guides-title">{t('guides.libraryTitle')}</h2>
+          <p className="guides-subtitle">{t('guides.librarySubtitle')}</p>
         </div>
         {isTeacherOrAdmin && (
-          <button 
+          <button
             className="btn-create-guide"
             onClick={() => setModalOpen(true)}
           >
             <Plus size={16} />
-            <span>New Guide</span>
+            <span>{t('guides.newGuide')}</span>
           </button>
         )}
       </div>
@@ -107,34 +105,34 @@ const GuidesPage = () => {
       <div className="guides-filter-row">
         {/* Access level Tabs */}
         <div className="guides-tabs">
-          <button 
+          <button
             className={`guide-tab-btn ${activeTab === 'all' ? 'active' : ''}`}
             onClick={() => handleTabChange('all')}
           >
-            All Outlines
+            {t('guides.tabAll')}
           </button>
-          <button 
+          <button
             className={`guide-tab-btn ${activeTab === 'free' ? 'active' : ''}`}
             onClick={() => handleTabChange('free')}
           >
-            Free
+            {t('guides.tabFree')}
           </button>
-          <button 
+          <button
             className={`guide-tab-btn ${activeTab === 'pro' ? 'active' : ''}`}
             onClick={() => handleTabChange('pro')}
           >
-            Pro
+            {t('guides.tabPro')}
           </button>
         </div>
 
         {/* Category Dropdown */}
         <div className="category-filter-wrapper">
-          <select 
+          <select
             className="category-select"
             value={selectedCategory}
             onChange={handleCategoryChange}
           >
-            <option value="">All Categories</option>
+            <option value="">{t('guides.allCategories')}</option>
             {categories.map((cat) => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
@@ -148,8 +146,8 @@ const GuidesPage = () => {
       ) : guides.length === 0 ? (
         <div className="empty-state-card">
           <BookOpen size={48} style={{ opacity: 0.4, color: 'var(--color-primary)', marginBottom: '16px' }} />
-          <h3>No Guides Found</h3>
-          <p>We couldn't find any outlines matching your filters. Try selecting a different tab or category.</p>
+          <h3>{t('guides.noGuides')}</h3>
+          <p>{t('guides.noGuidesDesc')}</p>
         </div>
       ) : (
         <div className="guides-list">
@@ -170,9 +168,9 @@ const GuidesPage = () => {
 
                 {/* Center side: Text details */}
                 <div className="guide-card-body">
-                  <span className="guide-card-category">{g.category || 'General'}</span>
+                  <span className="guide-card-category">{g.category || t('guides.general')}</span>
                   <h4 className="guide-card-title">{g.title}</h4>
-                  <p className="guide-card-description">{g.description || 'No description available for this guide.'}</p>
+                  <p className="guide-card-description">{g.description || t('guides.noDescription')}</p>
                 </div>
 
                 {/* Right side: Badge and Button */}
@@ -182,7 +180,7 @@ const GuidesPage = () => {
                     {g.access_level.toUpperCase()}
                   </span>
                   <button className="guide-card-btn-view">
-                    <span>View</span>
+                    <span>{t('guides.viewBtn')}</span>
                     <ChevronRight size={16} />
                   </button>
                 </div>
@@ -195,22 +193,22 @@ const GuidesPage = () => {
       {/* Pagination Row */}
       {total > limit && (
         <div className="guides-pagination">
-          <button 
+          <button
             className="btn-guides-page"
             onClick={() => setPage(prev => Math.max(prev - 1, 1))}
             disabled={page === 1}
           >
-            &larr; Prev
+            &larr; {t('guides.prevPage')}
           </button>
           <span className="guides-page-indicator">
-            Page {page} of {Math.ceil(total / limit)}
+            {t('guides.pageInfo', { page, total: Math.ceil(total / limit) })}
           </span>
-          <button 
+          <button
             className="btn-guides-page"
             onClick={() => setPage(prev => Math.min(prev + 1, Math.ceil(total / limit)))}
             disabled={page >= Math.ceil(total / limit)}
           >
-            Next &rarr;
+            {t('guides.nextPage')} &rarr;
           </button>
         </div>
       )}

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Upload, Globe, Tag } from 'lucide-react';
 import client from '../api/client';
 import './ResourceFormModal.css';
 
 const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [shortDesc, setShortDesc] = useState('');
@@ -74,7 +76,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
       setIconUrl(res.data.data.cdn_url);
     } catch (err) {
       console.error('File upload failed:', err);
-      setErrorMsg('Failed to upload icon. Max size is 10MB.');
+      setErrorMsg(t('resources.form.errorUpload'));
     } finally {
       setUploadingIcon(false);
     }
@@ -118,12 +120,12 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
 
     // URL validation
     if (!url.toLowerCase().startsWith('http://') && !url.toLowerCase().startsWith('https://')) {
-      setErrorMsg('URL must start with http:// or https://');
+      setErrorMsg(t('resources.form.errorUrl'));
       return;
     }
 
     if (shortDesc.length > 150) {
-      setErrorMsg('Short description cannot exceed 150 characters.');
+      setErrorMsg(t('resources.form.errorShortDesc'));
       return;
     }
 
@@ -151,7 +153,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
       onClose();
     } catch (err) {
       console.error('Resource form error:', err);
-      const msg = err.response?.data?.error?.message || 'An error occurred while saving the website.';
+      const msg = err.response?.data?.error?.message || t('resources.form.errorSave');
       setErrorMsg(msg);
     } finally {
       setSubmitting(false);
@@ -164,7 +166,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
         {/* Header */}
         <div className="modal-header">
           <h3 className="modal-title">
-            {resourceToEdit ? 'Edit Research Website' : 'New Research Website'}
+            {resourceToEdit ? t('resources.form.titleEdit') : t('resources.form.titleNew')}
           </h3>
           <button className="btn-modal-close" onClick={onClose}>
             <X size={20} />
@@ -183,10 +185,10 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
           {/* Form Row: Name & Access Type */}
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Website Name *</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <label className="form-label">{t('resources.form.nameLabel')}</label>
+              <input
+                type="text"
+                className="form-input"
                 placeholder="Google Scholar"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -195,26 +197,26 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Access Type *</label>
-              <select 
+              <label className="form-label">{t('resources.form.accessTypeLabel')}</label>
+              <select
                 className="form-input"
                 value={accessType}
                 onChange={(e) => setAccessType(e.target.value)}
                 required
                 disabled={submitting}
               >
-                <option value="free">Free</option>
-                <option value="paid">Paid</option>
+                <option value="free">{t('resources.form.accessFree')}</option>
+                <option value="paid">{t('resources.form.accessPaid')}</option>
               </select>
             </div>
           </div>
 
           {/* URL */}
           <div className="form-group">
-            <label className="form-label">Website URL *</label>
-            <input 
-              type="text" 
-              className="form-input" 
+            <label className="form-label">{t('resources.form.urlLabel')}</label>
+            <input
+              type="text"
+              className="form-input"
               placeholder="https://scholar.google.com"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -225,7 +227,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
 
           {/* Icon Upload section */}
           <div className="form-group">
-            <label className="form-label">Website Icon</label>
+            <label className="form-label">{t('resources.form.iconLabel')}</label>
             <div className="icon-upload-section">
               <div className="icon-preview-box">
                 {iconUrl ? (
@@ -237,12 +239,12 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
               <div className="icon-upload-btn-wrapper">
                 <button type="button" className="btn-upload-file">
                   <Upload size={14} style={{ marginRight: '6px' }} />
-                  {uploadingIcon ? 'Uploading...' : 'Choose Image'}
+                  {uploadingIcon ? t('resources.form.uploadingIcon') : t('resources.form.uploadIcon')}
                 </button>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  className="file-input-hidden" 
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="file-input-hidden"
                   onChange={handleIconChange}
                   disabled={uploadingIcon || submitting}
                 />
@@ -253,13 +255,12 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
           {/* Short Description */}
           <div className="form-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <label className="form-label">Short Description *</label>
+              <label className="form-label">{t('resources.form.shortDescLabel')}</label>
               <span className="form-group-text">{shortDesc.length}/150</span>
             </div>
-            <textarea 
+            <textarea
               className="form-input"
               rows={2}
-              placeholder="Provide a quick 2-line summary of what this search engine is used for..."
               maxLength={150}
               value={shortDesc}
               onChange={(e) => setShortDesc(e.target.value)}
@@ -271,11 +272,10 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
 
           {/* Full Description */}
           <div className="form-group">
-            <label className="form-label">Full Description *</label>
-            <textarea 
+            <label className="form-label">{t('resources.form.fullDescLabel')}</label>
+            <textarea
               className="form-input"
               rows={4}
-              placeholder="Detailed description of features, guides on how to search, access options, etc."
               value={fullDesc}
               onChange={(e) => setFullDesc(e.target.value)}
               required
@@ -285,22 +285,22 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
 
           {/* Target Audience (Tag Input) */}
           <div className="tag-input-container">
-            <label className="form-label">Target Audience (Press Enter to add)</label>
+            <label className="form-label">{t('resources.form.audienceLabel')}</label>
             <div className="tags-input-wrapper">
               {targetAudience.map((tag) => (
                 <span key={tag} className="tag-chip">
                   {tag}
-                  <button 
-                    type="button" 
-                    className="btn-remove-tag" 
+                  <button
+                    type="button"
+                    className="btn-remove-tag"
                     onClick={() => handleRemoveAudience(tag)}
                   >
                     <X size={12} />
                   </button>
                 </span>
               ))}
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="tags-inline-input"
                 placeholder="e.g. IT Students"
                 value={audienceInput}
@@ -313,22 +313,22 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
 
           {/* Key Features (Tag Input) */}
           <div className="tag-input-container">
-            <label className="form-label">Key Features (Press Enter to add)</label>
+            <label className="form-label">{t('resources.form.featuresLabel')}</label>
             <div className="tags-input-wrapper">
               {features.map((feature) => (
                 <span key={feature} className="tag-chip">
                   {feature}
-                  <button 
-                    type="button" 
-                    className="btn-remove-tag" 
+                  <button
+                    type="button"
+                    className="btn-remove-tag"
                     onClick={() => handleRemoveFeature(feature)}
                   >
                     <X size={12} />
                   </button>
                 </span>
               ))}
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="tags-inline-input"
                 placeholder="e.g. Citation Export"
                 value={featuresInput}
@@ -341,20 +341,20 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
 
           {/* Actions */}
           <div className="modal-actions-row">
-            <button 
-              type="button" 
-              className="btn-modal-cancel" 
+            <button
+              type="button"
+              className="btn-modal-cancel"
               onClick={onClose}
               disabled={submitting}
             >
-              Cancel
+              {t('resources.form.cancel')}
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="btn-modal-submit"
               disabled={submitting || uploadingIcon}
             >
-              {submitting ? 'Saving...' : 'Save'}
+              {submitting ? t('resources.form.saving') : t('resources.form.save')}
             </button>
           </div>
 

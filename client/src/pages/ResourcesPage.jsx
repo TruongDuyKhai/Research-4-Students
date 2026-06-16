@@ -55,7 +55,7 @@ const ResourcesPage = () => {
       }
     } catch (err) {
       console.error('Failed to get resources:', err);
-      setErrorMsg('Failed to load research websites. Please check back later.');
+      setErrorMsg(t('resources.errorLoad'));
     } finally {
       setLoading(false);
     }
@@ -97,28 +97,28 @@ const ResourcesPage = () => {
       setModalOpen(true);
     } catch (err) {
       console.error('Failed to fetch resource detail for editing:', err);
-      alert('Failed to load website details for editing.');
     }
   };
 
   // Delete resource
   const handleDeleteClick = async (e, resId, resName) => {
     e.stopPropagation();
-    if (window.confirm(`Are you sure you want to delete "${resName}"?`)) {
+    if (window.confirm(t('resources.confirmDelete', { name: resName }))) {
       try {
         await client.delete(`/resources/${resId}`);
         fetchResources(page, accessType, search);
       } catch (err) {
         console.error('Failed to delete resource:', err);
-        alert('Failed to delete resource. Please try again.');
       }
     }
   };
 
-  // Check if current user has edit permission on list page (Admin only for list cards)
-  const canModify = () => {
+  // Check if current user has edit permission on list page
+  const canModify = (res) => {
     if (!user) return false;
-    return user.role === 'admin';
+    if (user.role === 'admin') return true;
+    if (user.role === 'teacher' && res && res.created_by === user.id) return true;
+    return false;
   };
 
   const isTeacherOrAdmin = user && (user.role === 'teacher' || user.role === 'admin');
@@ -130,7 +130,7 @@ const ResourcesPage = () => {
       <div className="resources-header-row">
         <h2 className="resources-title">{t('nav.resources')}</h2>
         {isTeacherOrAdmin && (
-          <button 
+          <button
             className="btn-new-resource"
             onClick={() => {
               setEditingResource(null);
@@ -138,7 +138,7 @@ const ResourcesPage = () => {
             }}
           >
             <Plus size={16} />
-            <span>New</span>
+            <span>{t('resources.newBtn')}</span>
           </button>
         )}
       </div>
@@ -146,23 +146,23 @@ const ResourcesPage = () => {
       {/* Filter and Search Section */}
       <div className="filter-section">
         <div className="tabs-group">
-          <button 
+          <button
             className={`tab-btn ${accessType === '' ? 'active' : ''}`}
             onClick={() => handleTabChange('')}
           >
-            All
+            {t('resources.tabAll')}
           </button>
-          <button 
+          <button
             className={`tab-btn ${accessType === 'free' ? 'active' : ''}`}
             onClick={() => handleTabChange('free')}
           >
-            Free
+            {t('resources.tabFree')}
           </button>
-          <button 
+          <button
             className={`tab-btn ${accessType === 'paid' ? 'active' : ''}`}
             onClick={() => handleTabChange('paid')}
           >
-            Paid
+            {t('resources.tabPaid')}
           </button>
         </div>
 
@@ -191,9 +191,9 @@ const ResourcesPage = () => {
         /* Empty State */
         <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
           <Globe size={48} style={{ color: 'var(--color-text-secondary)', opacity: 0.6 }} />
-          <span>No research websites have been added yet.</span>
+          <span>{t('resources.emptyState')}</span>
           {isTeacherOrAdmin && (
-            <button 
+            <button
               className="btn-new-resource"
               onClick={() => {
                 setEditingResource(null);
@@ -202,7 +202,7 @@ const ResourcesPage = () => {
               style={{ marginTop: '8px' }}
             >
               <Plus size={16} />
-              <span>Add the first website</span>
+              <span>{t('resources.addFirst')}</span>
             </button>
           )}
         </div>
@@ -217,20 +217,20 @@ const ResourcesPage = () => {
                 onClick={() => navigate(`/resources/${res.id}`)}
                 style={{ cursor: 'pointer' }}
               >
-                {/* Admin edit/delete buttons overlay */}
-                {canModify() && (
+                {/* Admin/Teacher edit/delete buttons overlay */}
+                {canModify(res) && (
                   <div className="card-actions-overlay">
-                    <button 
-                      className="btn-card-action" 
+                    <button
+                      className="btn-card-action"
                       onClick={(e) => handleEditClick(e, res.id)}
-                      title="Edit"
+                      title={t('resources.detail.edit')}
                     >
                       <Edit2 size={12} />
                     </button>
-                    <button 
-                      className="btn-card-action delete" 
+                    <button
+                      className="btn-card-action delete"
                       onClick={(e) => handleDeleteClick(e, res.id, res.name)}
-                      title="Delete"
+                      title={t('resources.detail.delete')}
                     >
                       <Trash2 size={12} />
                     </button>
@@ -254,11 +254,11 @@ const ResourcesPage = () => {
                 </div>
                 
                 <p className="resource-desc">{res.short_description}</p>
-                <button 
+                <button
                   className="btn-visit"
                   onClick={() => navigate(`/resources/${res.id}`)}
                 >
-                  Visit
+                  {t('resources.visitBtn')}
                 </button>
               </div>
             ))}
@@ -267,22 +267,22 @@ const ResourcesPage = () => {
           {/* Pagination */}
           {total > limit && (
             <div className="pagination-row">
-              <button 
+              <button
                 className="btn-page"
                 onClick={() => setPage(page - 1)}
                 disabled={page === 1}
               >
-                &larr; Prev
+                &larr; {t('resources.prevPage')}
               </button>
               <span className="page-indicator">
-                Page {page} of {Math.ceil(total / limit)}
+                {t('resources.pageInfo', { page, total: Math.ceil(total / limit) })}
               </span>
-              <button 
+              <button
                 className="btn-page"
                 onClick={() => setPage(page + 1)}
                 disabled={page >= Math.ceil(total / limit)}
               >
-                Next &rarr;
+                {t('resources.nextPage')} &rarr;
               </button>
             </div>
           )}

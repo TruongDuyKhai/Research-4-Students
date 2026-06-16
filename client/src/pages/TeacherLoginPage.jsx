@@ -43,8 +43,8 @@ const TeacherLoginPage = () => {
     <>
       <div className="auth-header">
         <GraduationCap className="auth-logo" />
-        <h2 className="auth-title">Teacher Portal</h2>
-        <p className="auth-subtitle">Sign in with your email and password</p>
+        <h2 className="auth-title">{t('teacherLogin.title')}</h2>
+        <p className="auth-subtitle">{t('teacherLogin.subtitle')}</p>
       </div>
 
       {errorMsg && (
@@ -55,11 +55,11 @@ const TeacherLoginPage = () => {
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
         <div className="form-group">
-          <label className="form-label">Email</label>
-          <input 
-            type="email" 
-            className="form-input" 
-            placeholder="teacher@fpt.edu.vn" 
+          <label className="form-label">{t('auth.email')}</label>
+          <input
+            type="email"
+            className="form-input"
+            placeholder="teacher@fpt.edu.vn"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -67,30 +67,30 @@ const TeacherLoginPage = () => {
           />
         </div>
         <div className="form-group">
-          <label className="form-label">Password</label>
-          <input 
-            type="password" 
-            className="form-input" 
-            placeholder="••••••••" 
+          <label className="form-label">{t('auth.password')}</label>
+          <input
+            type="password"
+            className="form-input"
+            placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
             disabled={submitting}
           />
         </div>
-        <button 
-          type="submit" 
-          className="submit-btn" 
+        <button
+          type="submit"
+          className="submit-btn"
           style={{ marginTop: '8px' }}
           disabled={submitting}
         >
-          {submitting ? 'Signing in...' : 'Login'}
+          {submitting ? t('teacherLogin.signingIn') : t('teacherLogin.loginBtn')}
         </button>
       </form>
 
       <div style={{ textAlign: 'center', marginTop: '20px' }}>
         <NavLink to="/login" className="back-link">
-          ← Back to Student Login
+          {t('teacherLogin.backToStudent')}
         </NavLink>
       </div>
     </>
