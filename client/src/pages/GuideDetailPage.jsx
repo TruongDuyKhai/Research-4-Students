@@ -36,9 +36,9 @@ const GuideDetailPage = () => {
     } catch (err) {
       console.error('Failed to get guide detail:', err);
       if (err.response?.status === 404) {
-        setErrorMsg('Guide not found.');
+        setErrorMsg(t('guideDetail.notFound'));
       } else {
-        setErrorMsg('An error occurred while loading the guide details.');
+        setErrorMsg(t('guideDetail.loadError'));
       }
     } finally {
       setLoading(false);
@@ -51,13 +51,13 @@ const GuideDetailPage = () => {
 
   const handleDelete = async () => {
     if (!guide) return;
-    if (window.confirm(`Are you sure you want to delete the guide "${guide.title}"?`)) {
+    if (window.confirm(t('guideDetail.confirmDelete', { title: guide.title }))) {
       try {
         await client.delete(`/guides/${id}`);
         navigate('/guides');
       } catch (err) {
         console.error('Failed to delete guide:', err);
-        alert('Failed to delete guide. Please try again.');
+        alert(t('guideDetail.deleteError'));
       }
     }
   };
@@ -87,7 +87,7 @@ const GuideDetailPage = () => {
         setProModalOpen(true);
       } else {
         console.error('Download preparation failed:', err);
-        alert(err.response?.data?.error?.message || 'Failed to download guide.');
+        alert(err.response?.data?.error?.message || t('guideDetail.downloadError'));
       }
     } finally {
       setDownloading(false);
@@ -106,10 +106,10 @@ const GuideDetailPage = () => {
   if (errorMsg || !guide) {
     return (
       <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-        <span>{errorMsg || 'Failed to load guide.'}</span>
+        <span>{errorMsg || t('guideDetail.loadFail')}</span>
         <button className="btn-back-link" onClick={() => navigate('/guides')}>
           <ArrowLeft size={16} />
-          <span>Back to Library</span>
+          <span>{t('guideDetail.backToLibrary')}</span>
         </button>
       </div>
     );
@@ -124,14 +124,14 @@ const GuideDetailPage = () => {
       {showToast && (
         <div className="login-toast">
           <div className="toast-content">
-            <span className="toast-text">Please sign in to download this outline.</span>
+            <span className="toast-text">{t('guideDetail.toastSignIn')}</span>
             <div className="toast-actions">
-              <button 
-                className="btn-toast-signin" 
+              <button
+                className="btn-toast-signin"
                 onClick={() => navigate('/login', { state: { from: `/guides/${id}` } })}
               >
                 <LogIn size={14} />
-                <span>Sign In</span>
+                <span>{t('guideDetail.signInBtn')}</span>
               </button>
               <button className="btn-toast-close" onClick={() => setShowToast(false)}>
                 <X size={16} />
@@ -143,12 +143,12 @@ const GuideDetailPage = () => {
 
       {/* Back navigation */}
       <div>
-        <button 
-          className="btn-back-link" 
+        <button
+          className="btn-back-link"
           onClick={() => navigate('/guides')}
         >
           <ArrowLeft size={16} />
-          <span>Back to Library</span>
+          <span>{t('guideDetail.backToLibrary')}</span>
         </button>
       </div>
 
@@ -161,7 +161,7 @@ const GuideDetailPage = () => {
             <div className="guide-meta-labels">
               <span className="guide-category-chip">
                 <Folder size={12} style={{ marginRight: '4px' }} />
-                {guide.category || 'General'}
+                {guide.category || t('guideDetail.general')}
               </span>
               <span className={`guide-access-badge badge-${guide.access_level}`}>
                 {isPro ? <Lock size={12} style={{ marginRight: '4px' }} /> : <Unlock size={12} style={{ marginRight: '4px' }} />}
@@ -172,7 +172,7 @@ const GuideDetailPage = () => {
             
             <div className="guide-timestamp">
               <Calendar size={14} style={{ marginRight: '6px' }} />
-              <span>Created on {new Date(guide.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
+              <span>{t('guideDetail.createdOn')} {new Date(guide.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
             </div>
           </div>
 
@@ -180,21 +180,21 @@ const GuideDetailPage = () => {
           <div className="guide-detail-actions">
             {canModify() && (
               <div className="owner-buttons">
-                <button 
+                <button
                   className="btn-action-edit"
                   onClick={() => setEditModalOpen(true)}
-                  title="Edit Guide"
+                  title={t('guideDetail.editTitle')}
                 >
                   <Edit2 size={16} />
-                  <span>Edit</span>
+                  <span>{t('guideDetail.editBtn')}</span>
                 </button>
-                <button 
+                <button
                   className="btn-action-delete"
                   onClick={handleDelete}
-                  title="Delete Guide"
+                  title={t('guideDetail.deleteTitle')}
                 >
                   <Trash2 size={16} />
-                  <span>Delete</span>
+                  <span>{t('guideDetail.deleteBtn')}</span>
                 </button>
               </div>
             )}
@@ -205,16 +205,16 @@ const GuideDetailPage = () => {
               disabled={downloading}
             >
               <Download size={18} />
-              <span>{downloading ? 'Downloading...' : 'Download Outline'}</span>
+              <span>{downloading ? t('guideDetail.downloading') : t('guideDetail.downloadBtn')}</span>
             </button>
           </div>
         </div>
 
         {/* Content details description */}
         <div className="guide-detail-body">
-          <h4 className="body-section-title">Overview & Outlines</h4>
+          <h4 className="body-section-title">{t('guideDetail.overview')}</h4>
           <p className="body-text-content">
-            {guide.description || 'No detailed outlines or description descriptions provided for this resource.'}
+            {guide.description || t('guideDetail.noDescription')}
           </p>
 
           {/* Attached Document Card Info */}
@@ -223,11 +223,11 @@ const GuideDetailPage = () => {
               <BookOpen size={24} />
             </div>
             <div className="card-doc-info">
-              <span className="doc-label">Attachment Document</span>
-              <span className="doc-type">Format: PDF Document (Requires active reader)</span>
+              <span className="doc-label">{t('guideDetail.attachmentDoc')}</span>
+              <span className="doc-type">{t('guideDetail.attachmentFormat')}</span>
             </div>
             <span className={`doc-license badge-${guide.access_level}`}>
-              {guide.access_level} access
+              {t('guideDetail.accessLabel', { level: guide.access_level })}
             </span>
           </div>
         </div>

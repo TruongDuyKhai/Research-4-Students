@@ -146,7 +146,7 @@ const CommunityPage = ({ defaultTab }) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setComposerError('Only image files are allowed as attachments.');
+      setComposerError(t('community.forum.errorImageType'));
       return;
     }
 
@@ -165,7 +165,7 @@ const CommunityPage = ({ defaultTab }) => {
       setAttachmentUrl(res.data.data.cdn_url);
     } catch (err) {
       console.error('Failed to upload image:', err);
-      setComposerError('Image upload failed. Max size is 10MB.');
+      setComposerError(t('community.forum.errorImageUpload'));
     } finally {
       setUploadingImage(false);
     }
@@ -181,12 +181,12 @@ const CommunityPage = ({ defaultTab }) => {
     setComposerError('');
 
     if (!postContent.trim()) {
-      setComposerError('Content is required to share a post.');
+      setComposerError(t('community.forum.errorContent'));
       return;
     }
 
     if (!postTurnstileToken) {
-      setComposerError('Security check token is required.');
+      setComposerError(t('community.forum.errorSecurity'));
       return;
     }
 
@@ -216,12 +216,12 @@ const CommunityPage = ({ defaultTab }) => {
     } catch (err) {
       console.error('Failed to publish post:', err);
       const errCode = err.response?.data?.error?.code;
-      let msg = err.response?.data?.error?.message || 'An error occurred while publishing.';
-      
+      let msg = err.response?.data?.error?.message || t('community.forum.errorPublish');
+
       if (errCode === 'COOLDOWN') {
         const retryAfter = err.response?.data?.error?.retryAfterSeconds || 60;
         setCooldownCountdown(retryAfter);
-        msg = `Action rate-limited. Please wait ${retryAfter} seconds.`;
+        msg = t('community.forum.errorCooldown', { seconds: retryAfter });
       }
       setComposerError(msg);
       setPostTurnstileToken(null); // Force re-verify
@@ -233,7 +233,7 @@ const CommunityPage = ({ defaultTab }) => {
   // Optimistic Likes Toggler
   const handleToggleLike = async (postId) => {
     if (!user) {
-      alert('Please sign in to react to posts.');
+      alert(t('community.forum.errorLikeSignIn'));
       return;
     }
 
@@ -268,7 +268,7 @@ const CommunityPage = ({ defaultTab }) => {
 
   const triggerReport = (type, id) => {
     if (!user) {
-      alert('Please sign in to report content.');
+      alert(t('community.forum.errorReportSignIn'));
       return;
     }
     setReportTarget({ type, id });
@@ -328,7 +328,7 @@ const CommunityPage = ({ defaultTab }) => {
       fetchProjects(1);
     } catch (err) {
       console.error(`Failed to respond to invite ${inviteId}:`, err);
-      alert('Action failed. Please try again.');
+      alert(t('community.projects.inviteError'));
     }
   };
 
@@ -337,19 +337,19 @@ const CommunityPage = ({ defaultTab }) => {
       
       {/* Sub-Header Tab Bar */}
       <div className="community-tabs-nav">
-        <button 
+        <button
           className={`community-tab-btn ${activeTab === 'forum' ? 'active' : ''}`}
           onClick={() => handleTabChange('forum')}
         >
           <MessageSquare size={18} />
-          <span>Forum Discussion</span>
+          <span>{t('community.tabForum')}</span>
         </button>
-        <button 
+        <button
           className={`community-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
           onClick={() => handleTabChange('projects')}
         >
           <Users size={18} />
-          <span>Group Projects</span>
+          <span>{t('community.tabProjects')}</span>
         </button>
       </div>
 
@@ -362,7 +362,7 @@ const CommunityPage = ({ defaultTab }) => {
           {/* Post Composer card */}
           {user ? (
             <div className="post-composer-card">
-              <h3 className="composer-card-title">Share something with the forum</h3>
+              <h3 className="composer-card-title">{t('community.forum.composerTitle')}</h3>
               {composerError && (
                 <div className="composer-error-alert">
                   <AlertCircle size={16} />
@@ -374,7 +374,7 @@ const CommunityPage = ({ defaultTab }) => {
                 <input 
                   type="text" 
                   className="composer-input-title"
-                  placeholder="Title (Optional)"
+                  placeholder={t('community.forum.titlePlaceholder')}
                   value={postTitle}
                   onChange={(e) => setPostTitle(e.target.value)}
                   disabled={submittingPost}
@@ -382,7 +382,7 @@ const CommunityPage = ({ defaultTab }) => {
                 
                 <textarea 
                   className="composer-textarea-content"
-                  placeholder="What's on your mind regarding academic research?..."
+                  placeholder={t('community.forum.contentPlaceholder')}
                   rows={4}
                   value={postContent}
                   onChange={(e) => setPostContent(e.target.value)}
@@ -410,7 +410,7 @@ const CommunityPage = ({ defaultTab }) => {
                   <input 
                     type="text" 
                     className="composer-input-tag"
-                    placeholder="Add tag (Press Enter)"
+                    placeholder={t('community.forum.tagPlaceholder')}
                     value={postTagInput}
                     onChange={(e) => setPostTagInput(e.target.value)}
                     onKeyDown={handleAddTag}
@@ -439,7 +439,7 @@ const CommunityPage = ({ defaultTab }) => {
                         disabled={uploadingImage || submittingPost}
                       >
                         <ImageIcon size={16} />
-                        <span>{uploadingImage ? 'Uploading...' : 'Attach Image'}</span>
+                        <span>{uploadingImage ? t('community.forum.uploadingImage') : t('community.forum.attachImage')}</span>
                       </button>
                       <input 
                         type="file" 
@@ -461,7 +461,7 @@ const CommunityPage = ({ defaultTab }) => {
                 <div className="composer-actions-row">
                   {cooldownCountdown > 0 && (
                     <span className="cooldown-countdown-text">
-                      Cooldown active: {cooldownCountdown}s
+                      {t('community.forum.cooldown', { seconds: cooldownCountdown })}
                     </span>
                   )}
                   <button 
@@ -469,7 +469,7 @@ const CommunityPage = ({ defaultTab }) => {
                     className="btn-submit-post"
                     disabled={submittingPost || uploadingImage || !postTurnstileToken || !postContent.trim()}
                   >
-                    {submittingPost ? 'Posting...' : 'Post'}
+                    {submittingPost ? t('community.forum.posting') : t('community.forum.postBtn')}
                   </button>
                 </div>
 
@@ -477,32 +477,32 @@ const CommunityPage = ({ defaultTab }) => {
             </div>
           ) : (
             <div className="guest-composer-banner">
-              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>Join the Research Community</h3>
+              <h3 style={{ margin: 0, fontSize: '1.15rem' }}>{t('community.forum.guestTitle')}</h3>
               <p style={{ margin: '4px 0 16px 0', fontSize: '0.9rem', color: 'var(--color-text-secondary)' }}>
-                Sign in to post queries, share materials, react to research topics, and comment on drafts.
+                {t('community.forum.guestDesc')}
               </p>
-              <button 
+              <button
                 className="btn-guest-login"
                 onClick={() => navigate('/login')}
               >
-                Sign In to Post
+                {t('community.forum.guestLogin')}
               </button>
             </div>
           )}
 
           {/* Posts Feed list */}
           {loadingPosts ? (
-            <div className="forum-empty-state">Loading posts...</div>
+            <div className="forum-empty-state">{t('community.forum.loading')}</div>
           ) : posts.length === 0 ? (
             <div className="forum-empty-state">
               <MessageSquare size={40} style={{ opacity: 0.4, color: 'var(--color-primary)', marginBottom: '12px' }} />
-              <h3>No Posts Yet</h3>
-              <p>Be the first one to kick off discussions by writing a post above!</p>
+              <h3>{t('community.forum.noPostsTitle')}</h3>
+              <p>{t('community.forum.noPostsDesc')}</p>
             </div>
           ) : (
             <div className="posts-feed-list">
               {posts.map((post) => {
-                const author = post.author || { display_name: 'Guest User', username: 'guest', avatar_url: null };
+                const author = post.author || { display_name: t('community.forum.guestAuthor'), username: 'guest', avatar_url: null };
                 const formattedDate = new Date(post.created_at.replace(' ', 'T') + 'Z').toLocaleString();
                 
                 return (
@@ -583,22 +583,22 @@ const CommunityPage = ({ defaultTab }) => {
           {/* Forum posts paging */}
           {postsTotal > postsLimit && (
             <div className="community-pagination">
-              <button 
+              <button
                 className="btn-community-page"
                 onClick={() => setPostsPage(prev => Math.max(prev - 1, 1))}
                 disabled={postsPage === 1}
               >
-                &larr; Prev
+                &larr; {t('community.forum.prevPage')}
               </button>
               <span className="community-page-indicator">
-                Page {postsPage} of {Math.ceil(postsTotal / postsLimit)}
+                {t('community.forum.pageInfo', { page: postsPage, total: Math.ceil(postsTotal / postsLimit) })}
               </span>
-              <button 
+              <button
                 className="btn-community-page"
                 onClick={() => setPostsPage(prev => Math.min(prev + 1, Math.ceil(postsTotal / postsLimit)))}
                 disabled={postsPage >= Math.ceil(postsTotal / postsLimit)}
               >
-                Next &rarr;
+                {t('community.forum.nextPage')} &rarr;
               </button>
             </div>
           )}
@@ -617,28 +617,28 @@ const CommunityPage = ({ defaultTab }) => {
             <div className="pending-invites-banner">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--badge-pro-text)' }}>
                 <ShieldAlert size={20} />
-                <h4 style={{ margin: 0, fontWeight: 700 }}>Pending Project Invitations</h4>
+                <h4 style={{ margin: 0, fontWeight: 700 }}>{t('community.projects.pendingTitle')}</h4>
               </div>
               <div className="invites-list">
                 {pendingInvites.map((inv) => (
                   <div key={inv.id} className="invite-strip-item">
                     <span className="invite-text-desc">
-                      <strong>{inv.invited_by.display_name}</strong> (@{inv.invited_by.username}) invited you to join project <strong>{inv.project.name}</strong>.
+                      <strong>{inv.invited_by.display_name}</strong> (@{inv.invited_by.username}) {t('community.projects.inviteText')} <strong>{inv.project.name}</strong>.
                     </span>
                     <div className="invite-strip-actions">
-                      <button 
+                      <button
                         className="btn-invite-accept"
                         onClick={() => handleInviteRespond(inv.id, 'accept')}
                       >
                         <Check size={14} />
-                        <span>Accept</span>
+                        <span>{t('community.projects.acceptBtn')}</span>
                       </button>
-                      <button 
+                      <button
                         className="btn-invite-decline"
                         onClick={() => handleInviteRespond(inv.id, 'decline')}
                       >
                         <X size={14} />
-                        <span>Decline</span>
+                        <span>{t('community.projects.declineBtn')}</span>
                       </button>
                     </div>
                   </div>
@@ -650,28 +650,28 @@ const CommunityPage = ({ defaultTab }) => {
           {/* Sub-Header Row */}
           <div className="projects-section-header">
             <div>
-              <h3 className="section-panel-title">Collaborative Projects</h3>
-              <p className="section-panel-subtitle">Find or create study groups to collaborate on outlines and methodology research feed drafts.</p>
+              <h3 className="section-panel-title">{t('community.projects.sectionTitle')}</h3>
+              <p className="section-panel-subtitle">{t('community.projects.sectionSubtitle')}</p>
             </div>
             {user && (
-              <button 
+              <button
                 className="btn-create-project-trigger"
                 onClick={() => setProjectModalOpen(true)}
               >
                 <Plus size={16} />
-                <span>New Project</span>
+                <span>{t('community.projects.newProject')}</span>
               </button>
             )}
           </div>
 
           {/* Projects List Grid */}
           {loadingProjects ? (
-            <div className="projects-empty-state">Loading projects list...</div>
+            <div className="projects-empty-state">{t('community.projects.loading')}</div>
           ) : projects.length === 0 ? (
             <div className="projects-empty-state">
               <Users size={40} style={{ opacity: 0.4, color: 'var(--color-primary)', marginBottom: '12px' }} />
-              <h3>No Projects Registered</h3>
-              <p>Get started by creating a collaborative research project team!</p>
+              <h3>{t('community.projects.noProjectsTitle')}</h3>
+              <p>{t('community.projects.noProjectsDesc')}</p>
             </div>
           ) : (
             <div className="projects-grid-list">
@@ -694,17 +694,17 @@ const CommunityPage = ({ defaultTab }) => {
 
                     <h4 className="project-card-title">{proj.name}</h4>
                     <p className="project-card-desc">
-                      {proj.description || 'No detailed objectives or scopes outlined for this project.'}
+                      {proj.description || t('community.projects.noDescription')}
                     </p>
 
                     <div className="project-card-footer">
                       <div className="project-owner-info">
-                        <span className="owner-label">Lead:</span>
+                        <span className="owner-label">{t('community.projects.lead')}</span>
                         <span className="owner-name">{owner.display_name}</span>
                       </div>
                       <div className="project-members-count">
                         <Users size={14} />
-                        <span>{proj.memberCount || 1} members</span>
+                        <span>{t('community.projects.members', { count: proj.memberCount || 1 })}</span>
                       </div>
                     </div>
                   </div>
@@ -716,22 +716,22 @@ const CommunityPage = ({ defaultTab }) => {
           {/* Projects paging */}
           {projectsTotal > projectsLimit && (
             <div className="community-pagination">
-              <button 
+              <button
                 className="btn-community-page"
                 onClick={() => setProjectsPage(prev => Math.max(prev - 1, 1))}
                 disabled={projectsPage === 1}
               >
-                &larr; Prev
+                &larr; {t('community.projects.prevPage')}
               </button>
               <span className="community-page-indicator">
-                Page {projectsPage} of {Math.ceil(projectsTotal / projectsLimit)}
+                {t('community.projects.pageInfo', { page: projectsPage, total: Math.ceil(projectsTotal / projectsLimit) })}
               </span>
-              <button 
+              <button
                 className="btn-community-page"
                 onClick={() => setProjectsPage(prev => Math.min(prev + 1, Math.ceil(projectsTotal / projectsLimit)))}
                 disabled={projectsPage >= Math.ceil(projectsTotal / projectsLimit)}
               >
-                Next &rarr;
+                {t('community.projects.nextPage')} &rarr;
               </button>
             </div>
           )}
@@ -757,7 +757,7 @@ const CommunityPage = ({ defaultTab }) => {
         }}
         targetType={reportTarget?.type}
         targetId={reportTarget?.id}
-        onSuccess={() => alert('Content reported successfully. Admin review is pending.')}
+        onSuccess={() => alert(t('community.forum.reportSuccess'))}
       />
 
     </div>
