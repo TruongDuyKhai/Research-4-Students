@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Heart, MessageSquare, Flag, Send, CornerDownRight, Calendar } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, Flag, AlertCircle, CornerDownRight, Calendar, Trash2 } from 'lucide-react';
 import client from '../api/client';
 import Turnstile from '../components/Turnstile';
 import ReportModal from '../components/ReportModal';
@@ -11,6 +11,7 @@ import './PostDetailPage.css';
 
 // Recursive Comment Node Component
 const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
+  const { t } = useTranslation();
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [replyContent, setReplyContent] = useState('');
   const [turnstileToken, setTurnstileToken] = useState(null);
@@ -21,7 +22,7 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
     e.preventDefault();
     if (!replyContent.trim()) return;
     if (!turnstileToken) {
-      setErrorMsg('Please complete the Turnstile security check.');
+      setErrorMsg(t('postDetail.comment.errorTurnstile'));
       return;
     }
 
@@ -34,7 +35,7 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
         parent_comment_id: comment.id,
         turnstileToken
       });
-      
+
       setReplyContent('');
       setShowReplyForm(false);
       setTurnstileToken(null);
@@ -42,19 +43,19 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
     } catch (err) {
       console.error('Failed to reply:', err);
       const errCode = err.response?.data?.error?.code;
-      let msg = err.response?.data?.error?.message || 'Failed to submit reply.';
+      let msg = err.response?.data?.error?.message || t('postDetail.comment.errorFail');
       if (errCode === 'COOLDOWN') {
         const retrySec = err.response?.data?.error?.retryAfterSeconds || 15;
-        msg = `Rate limited. Please wait ${retrySec} seconds.`;
+        msg = t('postDetail.comment.errorCooldown', { seconds: retrySec });
       }
       setErrorMsg(msg);
-      setTurnstileToken(null); // Force reset Turnstile
+      setTurnstileToken(null);
     } finally {
       setSubmittingReply(false);
     }
   };
 
-  const author = comment.author || { display_name: 'Guest User', username: 'guest', avatar_url: null };
+  const author = comment.author || { display_name: t('postDetail.comment.guestAuthor'), username: 'guest', avatar_url: null };
   const formattedDate = new Date(comment.created_at.replace(' ', 'T') + 'Z').toLocaleString();
 
   return (
@@ -68,17 +69,17 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
             size={32}
             className="comment-user-avatar"
           />
-          
+
           <div className="comment-user-info">
             <span className="comment-user-name">{author.display_name}</span>
             <span className="comment-user-handle">@{author.username}</span>
             <span className="comment-time">{formattedDate}</span>
           </div>
-          
-          <button 
+
+          <button
             className="comment-btn-report"
             onClick={() => onReport('comment', comment.id)}
-            title="Report Comment"
+            title={t('postDetail.comment.reportTitle')}
           >
             <Flag size={12} />
           </button>
@@ -87,7 +88,7 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
         {/* Comment Body */}
         <div className="comment-body-content">
           {comment.status === 'deleted' ? (
-            <span className="comment-deleted-text">[This comment was deleted by a moderator]</span>
+            <span className="comment-deleted-text">{t('postDetail.comment.deletedText')}</span>
           ) : (
             <p className="comment-text">{comment.content}</p>
           )}
@@ -96,7 +97,7 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
         {/* Comment Actions */}
         {user && comment.status !== 'deleted' && (
           <div className="comment-actions-row">
-            <button 
+            <button
               className="comment-btn-reply-toggle"
               onClick={() => {
                 setShowReplyForm(!showReplyForm);
@@ -105,7 +106,7 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
               }}
             >
               <MessageSquare size={12} />
-              <span>Reply</span>
+              <span>{t('postDetail.comment.replyBtn')}</span>
             </button>
           </div>
         )}
@@ -118,39 +119,39 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
                 {errorMsg}
               </div>
             )}
-            
+
             <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
               <CornerDownRight size={16} className="reply-arrow-icon" />
               <div style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <textarea 
+                <textarea
                   className="reply-textarea"
-                  placeholder="Write a reply..."
+                  placeholder={t('postDetail.comment.replyPlaceholder')}
                   rows={2}
                   value={replyContent}
                   onChange={(e) => setReplyContent(e.target.value)}
                   required
                   disabled={submittingReply}
                 />
-                
+
                 <div style={{ alignSelf: 'flex-start', transform: 'scale(0.85)', transformOrigin: 'top left' }}>
                   <Turnstile onVerify={(token) => setTurnstileToken(token)} />
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="btn-reply-cancel"
                     onClick={() => setShowReplyForm(false)}
                     disabled={submittingReply}
                   >
-                    Cancel
+                    {t('postDetail.comment.cancelBtn')}
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="btn-reply-submit"
                     disabled={submittingReply || !turnstileToken || !replyContent.trim()}
                   >
-                    Send
+                    {t('postDetail.comment.sendBtn')}
                   </button>
                 </div>
               </div>
@@ -163,7 +164,7 @@ const CommentNode = ({ comment, postId, user, onReplySuccess, onReport }) => {
       {comment.replies && comment.replies.length > 0 && (
         <div className="comment-replies-thread">
           {comment.replies.map(reply => (
-            <CommentNode 
+            <CommentNode
               key={reply.id}
               comment={reply}
               postId={postId}
@@ -205,7 +206,7 @@ const PostDetailPage = () => {
     try {
       const res = await client.get(`/community/posts/${id}`);
       const p = res.data.data;
-      
+
       // Inject like stats
       try {
         const rxRes = await client.get(`/community/reactions?target_type=post&target_id=${id}`);
@@ -224,9 +225,9 @@ const PostDetailPage = () => {
     } catch (err) {
       console.error('Failed to fetch post details:', err);
       if (err.response?.status === 404) {
-        setErrorMsg('Post not found or has been hidden by moderators.');
+        setErrorMsg(t('postDetail.notFound'));
       } else {
-        setErrorMsg('Failed to load post.');
+        setErrorMsg(t('postDetail.loadFail'));
       }
     } finally {
       setLoading(false);
@@ -254,7 +255,7 @@ const PostDetailPage = () => {
   // Handle post reaction toggle
   const handleToggleLike = async () => {
     if (!user) {
-      alert('Please sign in to react to posts.');
+      alert(t('postDetail.errorSignInReact'));
       return;
     }
     if (!post) return;
@@ -292,7 +293,7 @@ const PostDetailPage = () => {
 
     if (!commentContent.trim()) return;
     if (!turnstileToken) {
-      setCommentError('Please complete the Turnstile security check.');
+      setCommentError(t('postDetail.errorTurnstile'));
       return;
     }
 
@@ -303,7 +304,7 @@ const PostDetailPage = () => {
         content: commentContent.trim(),
         turnstileToken
       });
-      
+
       setCommentContent('');
       setTurnstileToken(null);
       fetchComments();
@@ -311,10 +312,10 @@ const PostDetailPage = () => {
     } catch (err) {
       console.error('Failed to create comment:', err);
       const errCode = err.response?.data?.error?.code;
-      let msg = err.response?.data?.error?.message || 'An error occurred while commenting.';
+      let msg = err.response?.data?.error?.message || t('postDetail.errorComment');
       if (errCode === 'COOLDOWN') {
         const retrySec = err.response?.data?.error?.retryAfterSeconds || 15;
-        msg = `Please wait ${retrySec} seconds before writing another comment.`;
+        msg = t('postDetail.errorCooldown', { seconds: retrySec });
       }
       setCommentError(msg);
       setTurnstileToken(null); // Reset Turnstile
@@ -325,7 +326,7 @@ const PostDetailPage = () => {
 
   const triggerReport = (type, targetId) => {
     if (!user) {
-      alert('Please sign in to report content.');
+      alert(t('postDetail.errorSignInReport'));
       return;
     }
     setReportTarget({ type, id: targetId });
@@ -334,13 +335,13 @@ const PostDetailPage = () => {
 
   const handleDeletePost = async () => {
     if (!post) return;
-    if (window.confirm('Are you sure you want to delete this post?')) {
+    if (window.confirm(t('postDetail.confirmDelete'))) {
       try {
         await client.delete(`/community/posts/${id}`);
         navigate('/community');
       } catch (err) {
         console.error('Failed to delete post:', err);
-        alert('Failed to delete post. Please try again.');
+        alert(t('postDetail.deleteFail'));
       }
     }
   };
@@ -352,33 +353,33 @@ const PostDetailPage = () => {
   if (errorMsg || !post) {
     return (
       <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-        <span>{errorMsg || 'Failed to load post.'}</span>
+        <span>{errorMsg || t('postDetail.loadFail')}</span>
         <button className="btn-back-link" onClick={() => navigate('/community')}>
           <ArrowLeft size={16} />
-          <span>Back to Forum</span>
+          <span>{t('postDetail.backToForum')}</span>
         </button>
       </div>
     );
   }
 
-  const author = post.author || { display_name: 'Guest User', username: 'guest', avatar_url: null };
+  const author = post.author || { display_name: t('postDetail.comment.guestAuthor'), username: 'guest', avatar_url: null };
   const formattedPostDate = new Date(post.created_at.replace(' ', 'T') + 'Z').toLocaleString();
   const isOwnerOrAdmin = user && (user.role === 'admin' || post.author_id === user.id);
 
   return (
     <div className="post-detail-page-container">
-      
+
       {/* Back button */}
       <div>
         <button className="btn-back-link" onClick={() => navigate('/community')}>
           <ArrowLeft size={16} />
-          <span>Back to Forum</span>
+          <span>{t('postDetail.backToForum')}</span>
         </button>
       </div>
 
       {/* Main Post Card */}
       <div className="detailed-post-card">
-        
+
         {/* Header author details */}
         <div className="detailed-post-header">
           <Avatar
@@ -387,7 +388,7 @@ const PostDetailPage = () => {
             size={48}
             className="post-detail-avatar"
           />
-          
+
           <div className="post-detail-user-meta">
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span className="post-detail-display-name">{author.display_name}</span>
@@ -401,7 +402,7 @@ const PostDetailPage = () => {
 
           {/* Delete controls if owner/admin */}
           {isOwnerOrAdmin && (
-            <button className="btn-delete-post" onClick={handleDeletePost} title="Delete Post">
+            <button className="btn-delete-post" onClick={handleDeletePost} title={t('postDetail.deletePostTitle')}>
               <Trash2 size={16} />
             </button>
           )}
@@ -415,7 +416,7 @@ const PostDetailPage = () => {
           {/* Attachment render */}
           {post.attachment_url && (
             <div className="detailed-post-image-wrapper">
-              <img src={post.attachment_url} alt="Attached layout" className="detailed-post-image" />
+              <img src={post.attachment_url} alt="" className="detailed-post-image" />
             </div>
           )}
 
@@ -431,26 +432,26 @@ const PostDetailPage = () => {
 
         {/* Action button row */}
         <div className="detailed-post-actions">
-          <button 
+          <button
             className={`action-btn-react ${post.liked ? 'liked' : ''}`}
             onClick={handleToggleLike}
           >
             <Heart size={18} fill={post.liked ? 'currentColor' : 'none'} />
-            <span>{post.likesCount} Reacts</span>
+            <span>{t('postDetail.reacts', { count: post.likesCount })}</span>
           </button>
-          
+
           <div className="action-comments-indicator">
             <MessageSquare size={18} />
-            <span>{post.commentCount} Comments</span>
+            <span>{t('postDetail.comments', { count: post.commentCount })}</span>
           </div>
 
-          <button 
+          <button
             className="action-btn-report"
             onClick={() => triggerReport('post', post.id)}
             style={{ margin: 0 }}
           >
             <Flag size={16} />
-            <span>Report Post</span>
+            <span>{t('postDetail.reportPost')}</span>
           </button>
         </div>
 
@@ -458,22 +459,22 @@ const PostDetailPage = () => {
 
       {/* Discussion Thread Section */}
       <div className="discussion-thread-section">
-        <h4 className="discussion-section-title">Discussion Thread</h4>
+        <h4 className="discussion-section-title">{t('postDetail.discussionTitle')}</h4>
 
         {/* Comment Composer */}
         {user ? (
           <form onSubmit={handleCommentSubmit} className="main-comment-composer">
-            <h5 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', fontWeight: 700 }}>Write a comment</h5>
+            <h5 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', fontWeight: 700 }}>{t('postDetail.writeComment')}</h5>
             {commentError && (
               <div className="comment-error-alert" style={{ marginBottom: '12px' }}>
                 <AlertCircle size={14} />
                 <span>{commentError}</span>
               </div>
             )}
-            
-            <textarea 
+
+            <textarea
               className="composer-textarea-content"
-              placeholder="Join the discussion, ask questions, or provide outline ideas..."
+              placeholder={t('postDetail.commentPlaceholder')}
               rows={3}
               value={commentContent}
               onChange={(e) => setCommentContent(e.target.value)}
@@ -485,33 +486,33 @@ const PostDetailPage = () => {
               <div style={{ transform: 'scale(0.85)', transformOrigin: 'left center' }}>
                 <Turnstile onVerify={(token) => setTurnstileToken(token)} />
               </div>
-              
-              <button 
-                type="submit" 
+
+              <button
+                type="submit"
                 className="btn-submit-post"
                 disabled={submittingComment || !turnstileToken || !commentContent.trim()}
               >
-                {submittingComment ? 'Sending...' : 'Send Comment'}
+                {submittingComment ? t('postDetail.sendingComment') : t('postDetail.sendCommentBtn')}
               </button>
             </div>
           </form>
         ) : (
           <div className="guest-thread-notice">
-            Please sign in to write comments or replies on this forum thread.
+            {t('postDetail.guestNotice')}
           </div>
         )}
 
         {/* Comments Tree list */}
         {loadingComments ? (
-          <div className="thread-loading">Loading comments...</div>
+          <div className="thread-loading">{t('postDetail.loadingComments')}</div>
         ) : comments.length === 0 ? (
           <div className="thread-empty-state">
-            No comments yet. Start the conversation!
+            {t('postDetail.noComments')}
           </div>
         ) : (
           <div className="comments-tree-list">
             {comments.map((comment) => (
-              <CommentNode 
+              <CommentNode
                 key={comment.id}
                 comment={comment}
                 postId={post.id}
@@ -528,7 +529,7 @@ const PostDetailPage = () => {
       </div>
 
       {/* Report Modal */}
-      <ReportModal 
+      <ReportModal
         isOpen={reportModalOpen}
         onClose={() => {
           setReportModalOpen(false);
@@ -536,7 +537,7 @@ const PostDetailPage = () => {
         }}
         targetType={reportTarget?.type}
         targetId={reportTarget?.id}
-        onSuccess={() => alert('Content reported successfully. Admin review is pending.')}
+        onSuccess={() => alert(t('postDetail.reportSuccessAlert'))}
       />
 
     </div>

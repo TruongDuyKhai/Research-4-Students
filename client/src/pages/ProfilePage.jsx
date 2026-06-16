@@ -53,7 +53,7 @@ const ProfilePage = () => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      setErrorMsg('Only image files are allowed.');
+      setErrorMsg(t('profile.errorImageType'));
       return;
     }
 
@@ -78,11 +78,11 @@ const ProfilePage = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       updateUser({ ...user, avatar_file_id: res.data.data.avatar_file_id, avatar_url: res.data.data.avatar_url });
-      setSuccessMsg('Avatar updated successfully!');
+      setSuccessMsg(t('profile.successAvatar'));
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
       console.error('Failed to upload avatar:', err);
-      setErrorMsg('Failed to upload avatar. Max size is 10MB.');
+      setErrorMsg(t('profile.errorAvatarUpload'));
     } finally {
       setUploadingAvatar(false);
       if (cropperImageSrc) {
@@ -114,11 +114,11 @@ const ProfilePage = () => {
 
       const res = await client.patch('/users/me', payload);
       updateUser(res.data.data);
-      setSuccessMsg('Profile updated successfully!');
+      setSuccessMsg(t('profile.successProfile'));
       setTimeout(() => setSuccessMsg(''), 4000);
     } catch (err) {
       console.error('Failed to update profile:', err);
-      setErrorMsg(err.response?.data?.error?.message || 'Failed to update profile.');
+      setErrorMsg(err.response?.data?.error?.message || t('profile.errorProfile'));
     } finally {
       setSaving(false);
     }
@@ -134,14 +134,14 @@ const ProfilePage = () => {
     try {
       const res = await client.patch('/users/me', { language_pref: val });
       updateUser(res.data.data);
-      
+
       // Sync React-i18next language
       i18n.changeLanguage(val);
-      setSuccessMsg('Language preference updated!');
+      setSuccessMsg(t('profile.successLanguage'));
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       console.error('Failed to save language pref:', err);
-      setErrorMsg('Failed to save language preference.');
+      setErrorMsg(t('profile.errorLanguage'));
     }
   };
 
@@ -154,14 +154,14 @@ const ProfilePage = () => {
     try {
       const res = await client.patch('/users/me', { theme_pref: val });
       updateUser(res.data.data);
-      
+
       // Sync ThemeContext theme
       setTheme(val);
-      setSuccessMsg('Theme preference updated!');
+      setSuccessMsg(t('profile.successTheme'));
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       console.error('Failed to save theme pref:', err);
-      setErrorMsg('Failed to save theme preference.');
+      setErrorMsg(t('profile.errorTheme'));
     }
   };
 
@@ -169,7 +169,7 @@ const ProfilePage = () => {
 
   return (
     <div className="profile-container">
-      
+
       {/* Messages */}
       {successMsg && (
         <div className="profile-success-alert">
@@ -186,7 +186,7 @@ const ProfilePage = () => {
       )}
 
       <div className="profile-layout-grid">
-        
+
         {/* Left Side: Avatar Panel */}
         <div className="avatar-card-panel">
           <div className="avatar-preview-container">
@@ -196,17 +196,17 @@ const ProfilePage = () => {
               size={140}
               className="profile-large-avatar"
             />
-            
+
             {/* Upload Hover Overlay */}
             <div className="avatar-upload-overlay" onClick={triggerAvatarSelect}>
               <Camera size={24} />
-              <span>{uploadingAvatar ? 'Uploading...' : 'Change Avatar'}</span>
+              <span>{uploadingAvatar ? t('profile.uploadingAvatar') : t('profile.changeAvatar')}</span>
             </div>
-            
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              style={{ display: 'none' }} 
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
               accept="image/*"
               onChange={handleAvatarChange}
               disabled={uploadingAvatar}
@@ -223,13 +223,13 @@ const ProfilePage = () => {
                 {user.role.toUpperCase()}
               </span>
             </div>
-            
-            <button 
+
+            <button
               className="btn-view-public-profile"
               onClick={() => navigate(`/u/${user.username}`)}
             >
               <Eye size={14} />
-              <span>View Public Profile</span>
+              <span>{t('profile.viewPublic')}</span>
             </button>
           </div>
         </div>
@@ -238,19 +238,19 @@ const ProfilePage = () => {
         <div className="settings-fields-card">
           <h3 className="settings-title">
             <Settings size={18} />
-            <span>Profile Settings</span>
+            <span>{t('profile.settingsTitle')}</span>
           </h3>
 
           <form onSubmit={handleProfileSubmit} className="profile-settings-form">
-            
+
             {/* Display Name */}
             <div className="form-group">
               <label className="form-label">
-                <span>Display Name</span>
-                {!isStudent && <span className="locked-label"><Lock size={10} /> Locked by Admin</span>}
+                <span>{t('profile.displayNameLabel')}</span>
+                {!isStudent && <span className="locked-label"><Lock size={10} /> {t('profile.lockedByAdmin')}</span>}
               </label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="form-input"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
@@ -258,7 +258,7 @@ const ProfilePage = () => {
                 disabled={saving || !isStudent}
               />
               {!isStudent && (
-                <span className="input-caption">Teachers' display names can only be modified by system administrators.</span>
+                <span className="input-caption">{t('profile.lockedCaption')}</span>
               )}
             </div>
 
@@ -266,24 +266,24 @@ const ProfilePage = () => {
             {!isStudent && (
               <div className="form-row">
                 <div className="form-group">
-                  <label className="form-label">Employee Code</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={user.employee_code || ''} 
-                    disabled 
+                  <label className="form-label">{t('profile.employeeCode')}</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={user.employee_code || ''}
+                    disabled
                   />
-                  <span className="input-caption">Set by admin</span>
+                  <span className="input-caption">{t('profile.setByAdmin')}</span>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Department</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
-                    value={user.department || ''} 
-                    disabled 
+                  <label className="form-label">{t('profile.department')}</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={user.department || ''}
+                    disabled
                   />
-                  <span className="input-caption">Set by admin</span>
+                  <span className="input-caption">{t('profile.setByAdmin')}</span>
                 </div>
               </div>
             )}
@@ -291,11 +291,11 @@ const ProfilePage = () => {
             {/* Bio descriptions for Students */}
             {isStudent && (
               <div className="form-group">
-                <label className="form-label">Bio / Objectives</label>
-                <textarea 
+                <label className="form-label">{t('profile.bioLabel')}</label>
+                <textarea
                   className="form-input"
                   rows={4}
-                  placeholder="Share details about your academic interests, research goals, or outlines..."
+                  placeholder={t('profile.bioPlaceholder')}
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
                   disabled={saving}
@@ -305,27 +305,27 @@ const ProfilePage = () => {
 
             {/* Save Button for profile fields */}
             {isStudent && (
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn-save-profile"
                 disabled={saving || displayName.trim() === ''}
               >
-                {saving ? 'Saving...' : 'Save Profile Details'}
+                {saving ? t('profile.saving') : t('profile.saveBtn')}
               </button>
             )}
 
             {/* Password section for teachers */}
             {!isStudent && (
               <div className="teacher-password-block">
-                <h4 className="settings-subtitle">Account Credentials</h4>
-                <p className="settings-desc">To secure your academic account, change your password regularly.</p>
-                <button 
-                  type="button" 
+                <h4 className="settings-subtitle">{t('profile.credentialsTitle')}</h4>
+                <p className="settings-desc">{t('profile.credentialsDesc')}</p>
+                <button
+                  type="button"
                   className="btn-change-password"
                   onClick={() => navigate('/teacher/change-password')}
                 >
                   <Key size={14} />
-                  <span>Change Password</span>
+                  <span>{t('profile.changePasswordBtn')}</span>
                 </button>
               </div>
             )}
@@ -333,22 +333,22 @@ const ProfilePage = () => {
             <hr className="divider-line" />
 
             {/* Preferences Section */}
-            <h4 className="settings-subtitle">System Preferences</h4>
-            
+            <h4 className="settings-subtitle">{t('profile.prefsTitle')}</h4>
+
             <div className="form-row">
               {/* Language Preference */}
               <div className="form-group">
                 <label className="form-label">
                   <Globe size={14} style={{ marginRight: '4px' }} />
-                  <span>Language Preference</span>
+                  <span>{t('profile.languageLabel')}</span>
                 </label>
-                <select 
+                <select
                   className="form-input"
                   value={languagePref}
                   onChange={handleLanguageChange}
                 >
-                  <option value="en">English</option>
-                  <option value="vi">Tiếng Việt</option>
+                  <option value="en">{t('profile.langEn')}</option>
+                  <option value="vi">{t('profile.langVi')}</option>
                 </select>
               </div>
 
@@ -356,16 +356,16 @@ const ProfilePage = () => {
               <div className="form-group">
                 <label className="form-label">
                   <Palette size={14} style={{ marginRight: '4px' }} />
-                  <span>Theme Mode</span>
+                  <span>{t('profile.themeLabel')}</span>
                 </label>
-                <select 
+                <select
                   className="form-input"
                   value={themePref}
                   onChange={handleThemeChange}
                 >
-                  <option value="light">Light Mode</option>
-                  <option value="dark">Dark Mode</option>
-                  <option value="system">Follow System Settings</option>
+                  <option value="light">{t('profile.themeLight')}</option>
+                  <option value="dark">{t('profile.themeDark')}</option>
+                  <option value="system">{t('profile.themeSystem')}</option>
                 </select>
               </div>
             </div>

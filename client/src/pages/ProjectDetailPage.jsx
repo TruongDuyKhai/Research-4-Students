@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import { 
-  ArrowLeft, Users, Folder, Lock, Unlock, Calendar, Heart, 
-  MessageSquare, Flag, Image as ImageIcon, X, AlertCircle, Plus, Send, UserMinus
+import {
+  ArrowLeft, Users, Calendar, Heart,
+  MessageSquare, Flag, Image as ImageIcon, X, AlertCircle, Plus, CheckCircle, UserMinus, FileText
 } from 'lucide-react';
 import client from '../api/client';
 import ReportModal from '../components/ReportModal';
@@ -68,9 +68,9 @@ const ProjectDetailPage = () => {
     } catch (err) {
       console.error('Failed to fetch project details:', err);
       if (err.response?.status === 404) {
-        setErrorMsg('Project not found.');
+        setErrorMsg(t('projectDetail.notFound'));
       } else {
-        setErrorMsg('Failed to load project details.');
+        setErrorMsg(t('projectDetail.loadFail'));
       }
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ const ProjectDetailPage = () => {
     try {
       const res = await client.get(`/community/projects/${id}/posts?page=${activePage}&limit=${postsLimit}`);
       const postsList = res.data.data || [];
-      
+
       // Inject reactions
       const postsWithReactions = await Promise.all(postsList.map(async (p) => {
         try {
@@ -147,10 +147,10 @@ const ProjectDetailPage = () => {
     } catch (err) {
       console.error('Failed to invite member:', err);
       const errCode = err.response?.data?.error?.code;
-      let msg = err.response?.data?.error?.message || 'Failed to send invitation.';
-      
+      let msg = err.response?.data?.error?.message || t('projectDetail.errorInvite');
+
       if (errCode === 'INVITE_EXISTS') {
-        msg = `User @${inviteUsername} has already been invited or is currently a member.`;
+        msg = t('projectDetail.inviteExists', { username: inviteUsername });
       }
       setInviteError(msg);
     } finally {
@@ -160,15 +160,14 @@ const ProjectDetailPage = () => {
 
   // Remove member handler
   const handleRemoveMember = async (userId, username) => {
-    if (!window.confirm(`Are you sure you want to remove @${username} from the project?`)) return;
+    if (!window.confirm(t('projectDetail.confirmRemove', { username }))) return;
 
     try {
       await client.delete(`/community/projects/${id}/members/${userId}`);
-      // Refresh details
       fetchProjectDetails();
     } catch (err) {
       console.error('Failed to remove member:', err);
-      alert('Failed to remove member. Please try again.');
+      alert(t('projectDetail.removeFail'));
     }
   };
 
@@ -208,7 +207,7 @@ const ProjectDetailPage = () => {
       setAttachmentUrl(res.data.data.cdn_url);
     } catch (err) {
       console.error(err);
-      setComposerError('Image upload failed. Max size is 10MB.');
+      setComposerError(t('projectDetail.errorImageUpload'));
     } finally {
       setUploadingImage(false);
     }
@@ -225,7 +224,7 @@ const ProjectDetailPage = () => {
     setComposerError('');
 
     if (!postContent.trim()) {
-      setComposerError('Post content is required.');
+      setComposerError(t('projectDetail.errorContent'));
       return;
     }
 
@@ -239,24 +238,24 @@ const ProjectDetailPage = () => {
 
     try {
       await client.post(`/community/projects/${id}/posts`, payload);
-      
+
       setPostTitle('');
       setPostContent('');
       setPostTags([]);
       setAttachmentFileId(null);
       setAttachmentUrl(null);
-      
+
       setPostsPage(1);
       fetchProjectPosts(1);
     } catch (err) {
       console.error('Failed to post in project:', err);
       const errCode = err.response?.data?.error?.code;
-      let msg = err.response?.data?.error?.message || 'An error occurred while posting.';
-      
+      let msg = err.response?.data?.error?.message || t('community.forum.errorPublish');
+
       if (errCode === 'COOLDOWN') {
         const retryAfter = err.response?.data?.error?.retryAfterSeconds || 60;
         setCooldownCountdown(retryAfter);
-        msg = `Please wait ${retryAfter} seconds.`;
+        msg = t('projectDetail.errorCooldown', { seconds: retryAfter });
       }
       setComposerError(msg);
     } finally {
@@ -267,11 +266,11 @@ const ProjectDetailPage = () => {
   // Optimistic Likes Toggler
   const handleToggleLike = async (postId) => {
     if (!user) {
-      alert('Please sign in to react to posts.');
+      alert(t('projectDetail.errorSignInReact'));
       return;
     }
 
-    setPosts(prevPosts => 
+    setPosts(prevPosts =>
       prevPosts.map(p => {
         if (p.id === postId) {
           const liked = !p.liked;
@@ -299,7 +298,7 @@ const ProjectDetailPage = () => {
 
   const triggerReport = (type, postId) => {
     if (!user) {
-      alert('Please sign in to report content.');
+      alert(t('projectDetail.errorSignInReport'));
       return;
     }
     setReportTarget({ type, id: postId });
@@ -313,10 +312,10 @@ const ProjectDetailPage = () => {
   if (errorMsg || !project) {
     return (
       <div className="empty-state" style={{ display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center' }}>
-        <span>{errorMsg || 'Failed to load project details.'}</span>
+        <span>{errorMsg || t('projectDetail.loadFail')}</span>
         <button className="btn-back-link" onClick={() => navigate('/community/projects')}>
           <ArrowLeft size={16} />
-          <span>Back to Projects</span>
+          <span>{t('projectDetail.backToProjects')}</span>
         </button>
       </div>
     );
@@ -324,21 +323,21 @@ const ProjectDetailPage = () => {
 
   return (
     <div className="project-detail-container">
-      
+
       {/* Back button */}
       <div>
         <button className="btn-back-link" onClick={() => navigate('/community/projects')}>
           <ArrowLeft size={16} />
-          <span>Back to Projects</span>
+          <span>{t('projectDetail.backToProjects')}</span>
         </button>
       </div>
 
       {/* Grid: 2 columns layout */}
       <div className="project-layout-grid">
-        
+
         {/* Left Side Column: Details & internal feed */}
         <div className="project-left-panel">
-          
+
           {/* Project Info Header Card */}
           <div className="project-details-header-card">
             <div className="project-badge-row">
@@ -349,46 +348,46 @@ const ProjectDetailPage = () => {
                 {project.visibility}
               </span>
             </div>
-            
+
             <h2 className="project-details-title">{project.name}</h2>
             <p className="project-details-description">
-              {project.description || 'No detailed objectives or scopes outlined for this project.'}
+              {project.description || t('projectDetail.noDescription')}
             </p>
 
             <div className="project-timestamp">
               <Calendar size={14} style={{ marginRight: '6px' }} />
-              <span>Started on {new Date(project.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
+              <span>{t('projectDetail.startedOn')} {new Date(project.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
             </div>
           </div>
 
           {/* Project Feed Section */}
           <div className="project-feed-section">
-            <h3 className="feed-title">Project Collaboration Feed</h3>
+            <h3 className="feed-title">{t('projectDetail.feedTitle')}</h3>
 
             {/* Post Composer (Visible only to members) */}
             {isMember ? (
               <div className="post-composer-card" style={{ marginBottom: '16px' }}>
-                <h4 className="composer-card-title">Share updates with the project group</h4>
+                <h4 className="composer-card-title">{t('projectDetail.composerTitle')}</h4>
                 {composerError && (
                   <div className="composer-error-alert">
                     <AlertCircle size={16} />
                     <span>{composerError}</span>
                   </div>
                 )}
-                
+
                 <form onSubmit={handlePostSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="composer-input-title"
-                    placeholder="Title (Optional)"
+                    placeholder={t('projectDetail.titlePlaceholder')}
                     value={postTitle}
                     onChange={(e) => setPostTitle(e.target.value)}
                     disabled={submittingPost}
                   />
-                  
-                  <textarea 
+
+                  <textarea
                     className="composer-textarea-content"
-                    placeholder="Provide a progress report, document link, or task outline..."
+                    placeholder={t('projectDetail.contentPlaceholder')}
                     rows={3}
                     value={postContent}
                     onChange={(e) => setPostContent(e.target.value)}
@@ -402,8 +401,8 @@ const ProjectDetailPage = () => {
                       {postTags.map((tag, i) => (
                         <span key={tag} className="composer-tag-chip">
                           <span>#{tag}</span>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             className="btn-remove-tag"
                             onClick={() => handleRemoveTag(i)}
                             disabled={submittingPost}
@@ -413,10 +412,10 @@ const ProjectDetailPage = () => {
                         </span>
                       ))}
                     </div>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       className="composer-input-tag"
-                      placeholder="Add tag (Press Enter)"
+                      placeholder={t('projectDetail.tagPlaceholder')}
                       value={postTagInput}
                       onChange={(e) => setPostTagInput(e.target.value)}
                       onKeyDown={handleAddTag}
@@ -428,9 +427,9 @@ const ProjectDetailPage = () => {
                   <div className="composer-attachment-row">
                     {attachmentUrl ? (
                       <div className="attachment-preview-box">
-                        <img src={attachmentUrl} alt="Upload preview" className="attachment-img-preview" />
-                        <button 
-                          type="button" 
+                        <img src={attachmentUrl} alt="" className="attachment-img-preview" />
+                        <button
+                          type="button"
                           className="btn-remove-attachment"
                           onClick={handleRemoveAttachment}
                         >
@@ -439,17 +438,17 @@ const ProjectDetailPage = () => {
                       </div>
                     ) : (
                       <div className="attachment-upload-btn-wrapper">
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           className="btn-trigger-upload"
                           disabled={uploadingImage || submittingPost}
                         >
                           <ImageIcon size={16} />
-                          <span>{uploadingImage ? 'Uploading...' : 'Attach Image'}</span>
+                          <span>{uploadingImage ? t('projectDetail.uploadingImage') : t('projectDetail.attachImage')}</span>
                         </button>
-                        <input 
-                          type="file" 
-                          accept="image/png, image/jpeg, image/webp" 
+                        <input
+                          type="file"
+                          accept="image/png, image/jpeg, image/webp"
                           className="file-input-hidden"
                           onChange={handleImageUpload}
                           disabled={uploadingImage || submittingPost}
@@ -461,40 +460,40 @@ const ProjectDetailPage = () => {
                   <div className="composer-actions-row">
                     {cooldownCountdown > 0 && (
                       <span className="cooldown-countdown-text">
-                        Wait {cooldownCountdown}s
+                        {t('projectDetail.cooldownText', { seconds: cooldownCountdown })}
                       </span>
                     )}
-                    <button 
-                      type="submit" 
+                    <button
+                      type="submit"
                       className="btn-submit-post"
                       disabled={submittingPost || uploadingImage || !postContent.trim()}
                     >
-                      {submittingPost ? 'Posting...' : 'Post Update'}
+                      {submittingPost ? t('projectDetail.posting') : t('projectDetail.postBtn')}
                     </button>
                   </div>
                 </form>
               </div>
             ) : (
               <div className="non-member-feed-notice">
-                🔒 You must be a member of this project group to publish updates or view discussions in the collaboration feed.
+                {t('projectDetail.nonMemberNotice')}
               </div>
             )}
 
-            {/* Project Posts Feed Feed */}
+            {/* Project Posts Feed */}
             {loadingPosts ? (
-              <div className="forum-empty-state">Loading project posts...</div>
+              <div className="forum-empty-state">{t('projectDetail.loadingPosts')}</div>
             ) : posts.length === 0 ? (
               <div className="forum-empty-state">
                 <FileText size={40} style={{ opacity: 0.4, color: 'var(--color-primary)', marginBottom: '12px' }} />
-                <h3>No Updates Posted</h3>
-                <p>Collaborative project posts and notes will appear here once published by members.</p>
+                <h3>{t('projectDetail.noUpdatesTitle')}</h3>
+                <p>{t('projectDetail.noUpdatesDesc')}</p>
               </div>
             ) : (
               <div className="posts-feed-list">
                 {posts.map((post) => {
-                  const author = post.author || { display_name: 'Guest User', username: 'guest', avatar_url: null };
+                  const author = post.author || { display_name: t('community.forum.guestAuthor'), username: 'guest', avatar_url: null };
                   const formattedDate = new Date(post.created_at.replace(' ', 'T') + 'Z').toLocaleString();
-                  
+
                   return (
                     <div key={post.id} className="post-feed-card">
                       <div className="post-card-header">
@@ -516,10 +515,10 @@ const ProjectDetailPage = () => {
                       <div className="post-card-content">
                         {post.title && <h4 className="post-title-content">{post.title}</h4>}
                         <p className="post-text-content">{post.content}</p>
-                        
+
                         {post.attachment_url && (
                           <div className="post-content-image-wrapper">
-                            <img src={post.attachment_url} alt="Attached" className="post-attached-image" />
+                            <img src={post.attachment_url} alt="" className="post-attached-image" />
                           </div>
                         )}
 
@@ -533,15 +532,15 @@ const ProjectDetailPage = () => {
                       </div>
 
                       <div className="post-card-actions">
-                        <button 
+                        <button
                           className={`action-btn-react ${post.liked ? 'liked' : ''}`}
                           onClick={() => handleToggleLike(post.id)}
                         >
                           <Heart size={16} fill={post.liked ? 'currentColor' : 'none'} />
                           <span>{post.likesCount}</span>
                         </button>
-                        
-                        <button 
+
+                        <button
                           className="action-btn-comments"
                           onClick={() => navigate(`/community/posts/${post.id}`)}
                         >
@@ -549,7 +548,7 @@ const ProjectDetailPage = () => {
                           <span>{post.commentCount}</span>
                         </button>
 
-                        <button 
+                        <button
                           className="action-btn-report"
                           onClick={() => triggerReport('post', post.id)}
                         >
@@ -565,22 +564,22 @@ const ProjectDetailPage = () => {
             {/* Paging */}
             {postsTotal > postsLimit && (
               <div className="community-pagination">
-                <button 
+                <button
                   className="btn-community-page"
                   onClick={() => setPostsPage(prev => Math.max(prev - 1, 1))}
                   disabled={postsPage === 1}
                 >
-                  &larr; Prev
+                  &larr; {t('projectDetail.prevPage')}
                 </button>
                 <span className="community-page-indicator">
-                  Page {postsPage} of {Math.ceil(postsTotal / postsLimit)}
+                  {t('projectDetail.pageInfo', { page: postsPage, total: Math.ceil(postsTotal / postsLimit) })}
                 </span>
-                <button 
+                <button
                   className="btn-community-page"
                   onClick={() => setPostsPage(prev => Math.min(prev + 1, Math.ceil(postsTotal / postsLimit)))}
                   disabled={postsPage >= Math.ceil(postsTotal / postsLimit)}
                 >
-                  Next &rarr;
+                  {t('projectDetail.nextPage')} &rarr;
                 </button>
               </div>
             )}
@@ -591,16 +590,16 @@ const ProjectDetailPage = () => {
 
         {/* Right Side Column: Members List Panel & Owner Invites */}
         <div className="project-right-panel">
-          
+
           {/* Owner Invites Console */}
           {isOwner && (
             <div className="project-invite-card">
-              <h4 className="invite-card-title">Invite Researcher</h4>
-              
+              <h4 className="invite-card-title">{t('projectDetail.inviteTitle')}</h4>
+
               {inviteSuccess && (
                 <div className="invite-alert alert-success">
                   <CheckCircle size={14} />
-                  <span>Invitation sent successfully.</span>
+                  <span>{t('projectDetail.inviteSuccess')}</span>
                 </div>
               )}
 
@@ -612,21 +611,21 @@ const ProjectDetailPage = () => {
               )}
 
               <form onSubmit={handleInviteSubmit} className="invite-form">
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   className="composer-input-title"
-                  placeholder="Username (e.g. janesmith)"
+                  placeholder={t('projectDetail.invitePlaceholder')}
                   value={inviteUsername}
                   onChange={(e) => setInviteUsername(e.target.value)}
                   required
                   disabled={inviting}
                 />
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="btn-invite-submit"
                   disabled={inviting || !inviteUsername.trim()}
                 >
-                  {inviting ? 'Inviting...' : 'Invite'}
+                  {inviting ? t('projectDetail.inviting') : t('projectDetail.inviteBtn')}
                 </button>
               </form>
             </div>
@@ -636,9 +635,9 @@ const ProjectDetailPage = () => {
           <div className="project-members-panel-card">
             <h4 className="members-panel-title">
               <Users size={16} />
-              <span>Project Members ({members.length})</span>
+              <span>{t('projectDetail.membersTitle', { count: members.length })}</span>
             </h4>
-            
+
             <div className="members-list-container">
               {members.map((m) => (
                 <div key={m.user_id} className="member-strip-item">
@@ -660,10 +659,10 @@ const ProjectDetailPage = () => {
                       {m.role}
                     </span>
                     {isOwner && m.role !== 'owner' && (
-                      <button 
+                      <button
                         className="btn-remove-member-trigger"
                         onClick={() => handleRemoveMember(m.user_id, m.username)}
-                        title="Remove member"
+                        title={t('projectDetail.removeMemberTitle')}
                       >
                         <UserMinus size={14} />
                       </button>
@@ -679,7 +678,7 @@ const ProjectDetailPage = () => {
       </div>
 
       {/* Report Modal */}
-      <ReportModal 
+      <ReportModal
         isOpen={reportModalOpen}
         onClose={() => {
           setReportModalOpen(false);
@@ -687,7 +686,7 @@ const ProjectDetailPage = () => {
         }}
         targetType={reportTarget?.type}
         targetId={reportTarget?.id}
-        onSuccess={() => alert('Content reported successfully. Admin review is pending.')}
+        onSuccess={() => alert(t('projectDetail.reportSuccess'))}
       />
 
     </div>
