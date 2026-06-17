@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, BookOpen, Download, Edit2, Trash2, Calendar, Folder, Lock, Unlock, LogIn, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import client from '../api/client';
 import GuideFormModal from '../components/GuideFormModal';
 import ProDemoModal from '../components/ProDemoModal';
@@ -213,9 +214,11 @@ const GuideDetailPage = () => {
         {/* Content details description */}
         <div className="guide-detail-body">
           <h4 className="body-section-title">{t('guideDetail.overview')}</h4>
-          <p className="body-text-content">
-            {guide.description || t('guideDetail.noDescription')}
-          </p>
+          {guide.description ? (
+            <ReactMarkdown className="body-text-content md-rendered">{guide.description}</ReactMarkdown>
+          ) : (
+            <p className="body-text-content">{t('guideDetail.noDescription')}</p>
+          )}
 
           {/* Attached Document Card Info */}
           <div className="attached-document-card">

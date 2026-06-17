@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { Globe, ArrowLeft, Edit2, Trash2, ExternalLink } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import client from '../api/client';
 import ResourceFormModal from '../components/ResourceFormModal';
 import './ResourcesPage.css';
@@ -154,7 +155,11 @@ const ResourceDetailPage = () => {
         <div className="detail-content">
           <div className="detail-desc-block">
             <h4 className="detail-desc-title">{t('resources.detail.about')}</h4>
-            <p className="detail-desc-text">{resource.full_description}</p>
+            {resource.full_description ? (
+              <ReactMarkdown className="detail-desc-text md-rendered">{resource.full_description}</ReactMarkdown>
+            ) : (
+              <p className="detail-desc-text">—</p>
+            )}
           </div>
 
           {/* Dynamic Chip Blocks */}

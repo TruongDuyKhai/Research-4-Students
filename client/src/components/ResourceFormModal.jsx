@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Upload, Globe, Tag } from 'lucide-react';
 import client from '../api/client';
+import MarkdownEditor from './MarkdownEditor';
 import './ResourceFormModal.css';
 
 const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
@@ -273,12 +274,11 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
           {/* Full Description */}
           <div className="form-group">
             <label className="form-label">{t('resources.form.fullDescLabel')}</label>
-            <textarea
-              className="form-input"
-              rows={4}
+            <MarkdownEditor
               value={fullDesc}
               onChange={(e) => setFullDesc(e.target.value)}
-              required
+              placeholder="Mô tả chi tiết về website nghiên cứu này..."
+              rows={4}
               disabled={submitting}
             />
           </div>

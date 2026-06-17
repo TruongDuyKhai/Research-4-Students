@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, File } from 'lucide-react';
 import client from '../api/client';
+import MarkdownEditor from './MarkdownEditor';
 import './ResourceFormModal.css';
 
 const ArticleFormModal = ({ isOpen, onClose, onSuccess, articleToEdit, activeSubjectId, activeTopicId }) => {
@@ -283,12 +284,11 @@ const ArticleFormModal = ({ isOpen, onClose, onSuccess, articleToEdit, activeSub
           {/* Content Markdown Textarea */}
           <div className="form-group">
             <label className="form-label">Article Content (Markdown Supported)</label>
-            <textarea 
-              className="form-input"
-              rows={8}
-              placeholder="# Introduction&#10;Write your article content here using standard markdown syntax..."
+            <MarkdownEditor
               value={content}
               onChange={(e) => setContent(e.target.value)}
+              placeholder="## Giới thiệu&#10;Viết nội dung bài viết tại đây..."
+              rows={8}
               disabled={submitting}
             />
           </div>

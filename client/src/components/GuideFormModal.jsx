@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, File } from 'lucide-react';
 import client from '../api/client';
+import MarkdownEditor from './MarkdownEditor';
 import './ResourceFormModal.css';
 
 const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
@@ -235,12 +236,11 @@ const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
 
           <div className="form-group">
             <label className="form-label">Description / Outlines</label>
-            <textarea 
-              className="form-input"
-              rows={4}
-              placeholder="Provide a detailed description or outline of what is covered in this guide..."
+            <MarkdownEditor
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              placeholder="Provide a detailed description or outline of what is covered in this guide..."
+              rows={4}
               disabled={submitting}
             />
           </div>

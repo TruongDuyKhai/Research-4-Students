@@ -225,7 +225,7 @@ const ArticleDetailPage = () => {
         <div className="article-content-block">
           {article.content ? (
             <div className="markdown-body">
-              <ReactMarkdown>{article.content}</ReactMarkdown>
+              <ReactMarkdown className="md-rendered">{article.content}</ReactMarkdown>
             </div>
           ) : (
             <p className="no-content-text">{t('articleDetail.noContent')}</p>
