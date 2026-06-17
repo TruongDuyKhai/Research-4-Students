@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import { ArrowLeft, Heart, MessageSquare, Flag, AlertCircle, CornerDownRight, Calendar, Trash2 } from 'lucide-react';
+import { ArrowLeft, Heart, MessageSquare, Flag, AlertCircle, CornerDownRight, Calendar, Trash2, Pencil, X, Check, Bold, Italic, Strikethrough, Heading2, Code, List, ListOrdered, Quote, Eye, EyeOff } from 'lucide-react';
 import client from '../api/client';
 import Turnstile from '../components/Turnstile';
 import ReportModal from '../components/ReportModal';
@@ -202,6 +202,17 @@ const PostDetailPage = () => {
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null); // { type, id }
 
+  // Edit post states
+  const [editMode, setEditMode] = useState(false);
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editTags, setEditTags] = useState([]);
+  const [editTagInput, setEditTagInput] = useState('');
+  const [editPreview, setEditPreview] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState('');
+  const editTextareaRef = useRef(null);
+
   // 1. Fetch Post Detail + React stats
   const fetchPostDetail = async () => {
     try {
@@ -334,6 +345,61 @@ const PostDetailPage = () => {
     setReportModalOpen(true);
   };
 
+  const openEditMode = () => {
+    setEditTitle(post.title || '');
+    setEditContent(post.content || '');
+    setEditTags(post.tags || []);
+    setEditTagInput('');
+    setEditPreview(false);
+    setEditError('');
+    setEditMode(true);
+  };
+
+  const insertMarkdownEdit = (type) => {
+    const textarea = editTextareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = editContent.substring(start, end);
+    let newText;
+    switch (type) {
+      case 'bold':   newText = `**${selected || 'in đậm'}**`; break;
+      case 'italic': newText = `*${selected || 'in nghiêng'}*`; break;
+      case 'strike': newText = `~~${selected || 'văn bản'}~~`; break;
+      case 'heading':newText = `\n## ${selected || 'Tiêu đề'}`; break;
+      case 'code':   newText = selected.includes('\n') ? `\`\`\`\n${selected || 'code'}\n\`\`\`` : `\`${selected || 'code'}\``; break;
+      case 'ul':     newText = `\n- ${selected || 'Mục danh sách'}`; break;
+      case 'ol':     newText = `\n1. ${selected || 'Mục danh sách'}`; break;
+      case 'quote':  newText = `\n> ${selected || 'Trích dẫn'}`; break;
+      default: return;
+    }
+    const newContent = editContent.substring(0, start) + newText + editContent.substring(end);
+    setEditContent(newContent);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + newText.length, start + newText.length);
+    }, 0);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editContent.trim()) { setEditError('Nội dung không được để trống.'); return; }
+    setSavingEdit(true);
+    setEditError('');
+    try {
+      await client.patch(`/community/posts/${id}`, {
+        title: editTitle.trim() || null,
+        content: editContent.trim(),
+        tags: editTags,
+      });
+      setPost(prev => ({ ...prev, title: editTitle.trim() || null, content: editContent.trim(), tags: editTags }));
+      setEditMode(false);
+    } catch (err) {
+      setEditError(err.response?.data?.error?.message || 'Lưu thất bại, vui lòng thử lại.');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   const handleDeletePost = async () => {
     if (!post) return;
     if (window.confirm(t('postDetail.confirmDelete'))) {
@@ -401,35 +467,138 @@ const PostDetailPage = () => {
             </div>
           </div>
 
-          {/* Delete controls if owner/admin */}
+          {/* Owner/admin controls */}
           {isOwnerOrAdmin && (
-            <button className="btn-delete-post" onClick={handleDeletePost} title={t('postDetail.deletePostTitle')}>
-              <Trash2 size={16} />
-            </button>
-          )}
-        </div>
-
-        {/* Post Title & Content */}
-        <div className="detailed-post-body">
-          {post.title && <h3 className="detailed-post-title">{post.title}</h3>}
-          <ReactMarkdown className="detailed-post-text md-rendered">{post.content}</ReactMarkdown>
-
-          {/* Attachment render */}
-          {post.attachment_url && (
-            <div className="detailed-post-image-wrapper">
-              <img src={post.attachment_url} alt="" className="detailed-post-image" />
-            </div>
-          )}
-
-          {/* Tag Chips */}
-          {post.tags && post.tags.length > 0 && (
-            <div className="detailed-post-tags">
-              {post.tags.map(tag => (
-                <span key={tag} className="detailed-tag-chip">#{tag}</span>
-              ))}
+            <div className="post-owner-actions">
+              {!editMode && (
+                <button className="btn-edit-post" onClick={openEditMode} title="Chỉnh sửa bài viết">
+                  <Pencil size={15} />
+                </button>
+              )}
+              <button className="btn-delete-post" onClick={handleDeletePost} title={t('postDetail.deletePostTitle')}>
+                <Trash2 size={16} />
+              </button>
             </div>
           )}
         </div>
+
+        {/* Post Title & Content — view or edit mode */}
+        {editMode ? (
+          <div className="post-edit-form">
+            {editError && (
+              <div className="composer-error-alert" style={{ marginBottom: '10px' }}>
+                <AlertCircle size={14} />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <input
+              type="text"
+              className="composer-input-title"
+              placeholder="Tiêu đề (tuỳ chọn)"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              disabled={savingEdit}
+            />
+
+            <div className="markdown-editor-wrapper" style={{ marginTop: '10px' }}>
+              <div className="markdown-toolbar">
+                <button type="button" className="md-btn" onClick={() => insertMarkdownEdit('bold')} title="In đậm"><Bold size={14} /></button>
+                <button type="button" className="md-btn" onClick={() => insertMarkdownEdit('italic')} title="In nghiêng"><Italic size={14} /></button>
+                <button type="button" className="md-btn" onClick={() => insertMarkdownEdit('strike')} title="Gạch ngang"><Strikethrough size={14} /></button>
+                <div className="md-toolbar-separator" />
+                <button type="button" className="md-btn" onClick={() => insertMarkdownEdit('heading')} title="Tiêu đề"><Heading2 size={14} /></button>
+                <button type="button" className="md-btn" onClick={() => insertMarkdownEdit('quote')} title="Trích dẫn"><Quote size={14} /></button>
+                <button type="button" className="md-btn" onClick={() => insertMarkdownEdit('code')} title="Code"><Code size={14} /></button>
+                <div className="md-toolbar-separator" />
+                <button type="button" className="md-btn" onClick={() => insertMarkdownEdit('ul')} title="Danh sách"><List size={14} /></button>
+                <button type="button" className="md-btn" onClick={() => insertMarkdownEdit('ol')} title="Danh sách có số"><ListOrdered size={14} /></button>
+                <div className="md-toolbar-spacer" />
+                <button type="button" className={`md-btn md-btn-preview ${editPreview ? 'active' : ''}`} onClick={() => setEditPreview(p => !p)}>
+                  {editPreview ? <EyeOff size={14} /> : <Eye size={14} />}
+                  <span>{editPreview ? 'Chỉnh sửa' : 'Xem trước'}</span>
+                </button>
+              </div>
+              {editPreview ? (
+                <div className="markdown-preview-pane">
+                  {editContent.trim()
+                    ? <ReactMarkdown className="md-rendered">{editContent}</ReactMarkdown>
+                    : <span className="markdown-preview-empty">Chưa có nội dung...</span>
+                  }
+                </div>
+              ) : (
+                <textarea
+                  ref={editTextareaRef}
+                  className="composer-textarea-content"
+                  rows={6}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  disabled={savingEdit}
+                />
+              )}
+            </div>
+
+            {/* Edit tags */}
+            <div className="composer-tags-container" style={{ marginTop: '10px' }}>
+              <div className="composer-tags-list">
+                {editTags.map((tag, i) => (
+                  <span key={tag} className="composer-tag-chip">
+                    <span>#{tag}</span>
+                    <button type="button" className="btn-remove-tag" onClick={() => setEditTags(prev => prev.filter((_, idx) => idx !== i))} disabled={savingEdit}>
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <input
+                type="text"
+                className="composer-input-tag"
+                placeholder="Thêm thẻ và nhấn Enter"
+                value={editTagInput}
+                onChange={(e) => setEditTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const val = editTagInput.trim().toLowerCase();
+                    if (val && !editTags.includes(val)) setEditTags(prev => [...prev, val]);
+                    setEditTagInput('');
+                  }
+                }}
+                disabled={savingEdit}
+              />
+            </div>
+
+            <div className="post-edit-actions">
+              <button className="btn-edit-cancel" onClick={() => setEditMode(false)} disabled={savingEdit}>
+                <X size={14} /> Huỷ
+              </button>
+              <button className="btn-edit-save" onClick={handleSaveEdit} disabled={savingEdit || !editContent.trim()}>
+                <Check size={14} /> {savingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="detailed-post-body">
+            {post.title && <h3 className="detailed-post-title">{post.title}</h3>}
+            <ReactMarkdown className="detailed-post-text md-rendered">{post.content}</ReactMarkdown>
+
+            {/* Attachment render */}
+            {post.attachment_url && (
+              <div className="detailed-post-image-wrapper">
+                <img src={post.attachment_url} alt="" className="detailed-post-image" />
+              </div>
+            )}
+
+            {/* Tag Chips */}
+            {post.tags && post.tags.length > 0 && (
+              <div className="detailed-post-tags">
+                {post.tags.map(tag => (
+                  <span key={tag} className="detailed-tag-chip">#{tag}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Action button row */}
         <div className="detailed-post-actions">
