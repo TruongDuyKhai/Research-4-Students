@@ -1,3 +1,83 @@
+/* Project edit form */
+.project-edit-form { display: flex; flex-direction: column; gap: 0; }
+
+.btn-edit-project {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: auto;
+}
+.btn-edit-project:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+/* Post card action edit button */
+.action-btn-edit {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+.action-btn-edit:hover {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
+/* Reuse PostDetailPage edit button styles */
+.btn-edit-cancel {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-edit-cancel:hover { border-color: var(--color-text); color: var(--color-text); }
+
+.btn-edit-save {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn-edit-save:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.post-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 /* Project Detail Scaffolding */
 .project-detail-container {
   display: flex;

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, Heart, MessageSquare, Flag, AlertCircle, CornerDownRight, Calendar, Trash2, Pencil, X, Check, Bold, Italic, Strikethrough, Heading2, Code, List, ListOrdered, Quote, Eye, EyeOff } from 'lucide-react';
@@ -185,6 +185,7 @@ const PostDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const location = useLocation();
 
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
@@ -263,6 +264,18 @@ const PostDetailPage = () => {
     fetchPostDetail();
     fetchComments();
   }, [id]);
+
+  useEffect(() => {
+    if (post && location.state?.openEdit) {
+      setEditTitle(post.title || '');
+      setEditContent(post.content || '');
+      setEditTags(post.tags || []);
+      setEditTagInput('');
+      setEditPreview(false);
+      setEditError('');
+      setEditMode(true);
+    }
+  }, [post]);
 
   // Handle post reaction toggle
   const handleToggleLike = async () => {

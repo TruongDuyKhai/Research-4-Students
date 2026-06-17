@@ -1,11 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import {
   ArrowLeft, Users, Calendar, Heart,
-  MessageSquare, Flag, Image as ImageIcon, X, AlertCircle, Plus, CheckCircle, UserMinus, FileText
+  MessageSquare, Flag, Image as ImageIcon, X, AlertCircle, Plus, CheckCircle, UserMinus, FileText,
+  Pencil, Check, Bold, Italic, Strikethrough, Heading2, Code, List, ListOrdered, Quote, Eye, EyeOff
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import client from '../api/client';
 import ReportModal from '../components/ReportModal';
 import Avatar from '../components/Avatar';
@@ -50,6 +52,19 @@ const ProjectDetailPage = () => {
   // Report Modal states
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportTarget, setReportTarget] = useState(null); // { type, id }
+
+  // Project edit states
+  const [editingProject, setEditingProject] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editStatus, setEditStatus] = useState('');
+  const [editVisibility, setEditVisibility] = useState('');
+  const [savingProject, setSavingProject] = useState(false);
+  const [editProjectError, setEditProjectError] = useState('');
+
+  // Composer markdown toolbar
+  const [composerPreview, setComposerPreview] = useState(false);
+  const composerTextareaRef = useRef(null);
 
   // Cooldown countdown
   useEffect(() => {
@@ -127,6 +142,61 @@ const ProjectDetailPage = () => {
   const projectOwner = members.find(m => m.role === 'owner');
   const isOwner = user && projectOwner && projectOwner.user_id === user.id;
   const isMember = user && members.some(m => m.user_id === user.id);
+
+  const openEditProject = () => {
+    setEditName(project.name || '');
+    setEditDescription(project.description || '');
+    setEditStatus(project.status || 'recruiting');
+    setEditVisibility(project.visibility || 'public');
+    setEditProjectError('');
+    setEditingProject(true);
+  };
+
+  const handleSaveProject = async () => {
+    if (!editName.trim()) { setEditProjectError('Tên dự án không được để trống.'); return; }
+    setSavingProject(true);
+    setEditProjectError('');
+    try {
+      await client.patch(`/community/projects/${id}`, {
+        name: editName.trim(),
+        description: editDescription.trim() || null,
+        status: editStatus,
+        visibility: editVisibility,
+      });
+      setProject(prev => ({ ...prev, name: editName.trim(), description: editDescription.trim() || null, status: editStatus, visibility: editVisibility }));
+      setEditingProject(false);
+    } catch (err) {
+      setEditProjectError(err.response?.data?.error?.message || 'Lưu thất bại, vui lòng thử lại.');
+    } finally {
+      setSavingProject(false);
+    }
+  };
+
+  const insertMarkdownComposer = (type) => {
+    const textarea = composerTextareaRef.current;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selected = postContent.substring(start, end);
+    let newText;
+    switch (type) {
+      case 'bold':   newText = `**${selected || 'in đậm'}**`; break;
+      case 'italic': newText = `*${selected || 'in nghiêng'}*`; break;
+      case 'strike': newText = `~~${selected || 'văn bản'}~~`; break;
+      case 'heading':newText = `\n## ${selected || 'Tiêu đề'}`; break;
+      case 'code':   newText = selected.includes('\n') ? `\`\`\`\n${selected || 'code'}\n\`\`\`` : `\`${selected || 'code'}\``; break;
+      case 'ul':     newText = `\n- ${selected || 'Mục danh sách'}`; break;
+      case 'ol':     newText = `\n1. ${selected || 'Mục danh sách'}`; break;
+      case 'quote':  newText = `\n> ${selected || 'Trích dẫn'}`; break;
+      default: return;
+    }
+    const newContent = postContent.substring(0, start) + newText + postContent.substring(end);
+    setPostContent(newContent);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + newText.length, start + newText.length);
+    }, 0);
+  };
 
   // Invite member handler
   const handleInviteSubmit = async (e) => {
@@ -340,24 +410,86 @@ const ProjectDetailPage = () => {
 
           {/* Project Info Header Card */}
           <div className="project-details-header-card">
-            <div className="project-badge-row">
-              <span className={`project-status-badge status-${project.status}`}>
-                {project.status.replace('_', ' ')}
-              </span>
-              <span className={`project-visibility-badge visibility-${project.visibility}`}>
-                {project.visibility}
-              </span>
-            </div>
+            {editingProject ? (
+              <div className="project-edit-form">
+                {editProjectError && (
+                  <div className="composer-error-alert" style={{ marginBottom: '10px' }}>
+                    <AlertCircle size={14} />
+                    <span>{editProjectError}</span>
+                  </div>
+                )}
+                <input
+                  className="composer-input-title"
+                  type="text"
+                  placeholder="Tên dự án"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  disabled={savingProject}
+                />
+                <textarea
+                  className="composer-textarea-content"
+                  style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', marginTop: '10px' }}
+                  placeholder="Mô tả dự án (tuỳ chọn)"
+                  rows={3}
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  disabled={savingProject}
+                />
+                <div style={{ display: 'flex', gap: '10px', marginTop: '10px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '140px' }}>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Trạng thái</label>
+                    <select className="composer-input-title" value={editStatus} onChange={(e) => setEditStatus(e.target.value)} disabled={savingProject}>
+                      <option value="recruiting">Đang tuyển</option>
+                      <option value="in_progress">Đang thực hiện</option>
+                      <option value="completed">Hoàn thành</option>
+                      <option value="archived">Lưu trữ</option>
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '140px' }}>
+                    <label style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: 600 }}>Quyền truy cập</label>
+                    <select className="composer-input-title" value={editVisibility} onChange={(e) => setEditVisibility(e.target.value)} disabled={savingProject}>
+                      <option value="public">Công khai</option>
+                      <option value="private">Riêng tư</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="post-edit-actions" style={{ marginTop: '12px' }}>
+                  <button className="btn-edit-cancel" onClick={() => setEditingProject(false)} disabled={savingProject}>
+                    <X size={14} /> Huỷ
+                  </button>
+                  <button className="btn-edit-save" onClick={handleSaveProject} disabled={savingProject || !editName.trim()}>
+                    <Check size={14} /> {savingProject ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="project-badge-row">
+                  <span className={`project-status-badge status-${project.status}`}>
+                    {project.status.replace('_', ' ')}
+                  </span>
+                  <span className={`project-visibility-badge visibility-${project.visibility}`}>
+                    {project.visibility}
+                  </span>
+                  {isOwner && (
+                    <button className="btn-edit-project" onClick={openEditProject} title="Chỉnh sửa dự án">
+                      <Pencil size={13} />
+                      <span>Chỉnh sửa</span>
+                    </button>
+                  )}
+                </div>
 
-            <h2 className="project-details-title">{project.name}</h2>
-            <p className="project-details-description">
-              {project.description || t('projectDetail.noDescription')}
-            </p>
+                <h2 className="project-details-title">{project.name}</h2>
+                <p className="project-details-description">
+                  {project.description || t('projectDetail.noDescription')}
+                </p>
 
-            <div className="project-timestamp">
-              <Calendar size={14} style={{ marginRight: '6px' }} />
-              <span>{t('projectDetail.startedOn')} {new Date(project.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
-            </div>
+                <div className="project-timestamp">
+                  <Calendar size={14} style={{ marginRight: '6px' }} />
+                  <span>{t('projectDetail.startedOn')} {new Date(project.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Project Feed Section */}
@@ -385,15 +517,44 @@ const ProjectDetailPage = () => {
                     disabled={submittingPost}
                   />
 
-                  <textarea
-                    className="composer-textarea-content"
-                    placeholder={t('projectDetail.contentPlaceholder')}
-                    rows={3}
-                    value={postContent}
-                    onChange={(e) => setPostContent(e.target.value)}
-                    required
-                    disabled={submittingPost}
-                  />
+                  <div className="markdown-editor-wrapper">
+                    <div className="markdown-toolbar">
+                      <button type="button" className="md-btn" onClick={() => insertMarkdownComposer('bold')} title="In đậm"><Bold size={13} /></button>
+                      <button type="button" className="md-btn" onClick={() => insertMarkdownComposer('italic')} title="In nghiêng"><Italic size={13} /></button>
+                      <button type="button" className="md-btn" onClick={() => insertMarkdownComposer('strike')} title="Gạch ngang"><Strikethrough size={13} /></button>
+                      <div className="md-toolbar-separator" />
+                      <button type="button" className="md-btn" onClick={() => insertMarkdownComposer('heading')} title="Tiêu đề"><Heading2 size={13} /></button>
+                      <button type="button" className="md-btn" onClick={() => insertMarkdownComposer('quote')} title="Trích dẫn"><Quote size={13} /></button>
+                      <button type="button" className="md-btn" onClick={() => insertMarkdownComposer('code')} title="Code"><Code size={13} /></button>
+                      <div className="md-toolbar-separator" />
+                      <button type="button" className="md-btn" onClick={() => insertMarkdownComposer('ul')} title="Danh sách"><List size={13} /></button>
+                      <button type="button" className="md-btn" onClick={() => insertMarkdownComposer('ol')} title="Danh sách số"><ListOrdered size={13} /></button>
+                      <div className="md-toolbar-spacer" />
+                      <button type="button" className={`md-btn md-btn-preview ${composerPreview ? 'active' : ''}`} onClick={() => setComposerPreview(p => !p)}>
+                        {composerPreview ? <EyeOff size={13} /> : <Eye size={13} />}
+                        <span>{composerPreview ? 'Sửa' : 'Xem trước'}</span>
+                      </button>
+                    </div>
+                    {composerPreview ? (
+                      <div className="markdown-preview-pane">
+                        {postContent.trim()
+                          ? <ReactMarkdown className="md-rendered">{postContent}</ReactMarkdown>
+                          : <span className="markdown-preview-empty">Chưa có nội dung...</span>
+                        }
+                      </div>
+                    ) : (
+                      <textarea
+                        ref={composerTextareaRef}
+                        className="composer-textarea-content"
+                        placeholder={t('projectDetail.contentPlaceholder')}
+                        rows={3}
+                        value={postContent}
+                        onChange={(e) => setPostContent(e.target.value)}
+                        required
+                        disabled={submittingPost}
+                      />
+                    )}
+                  </div>
 
                   {/* Tag chips */}
                   <div className="composer-tags-container">
@@ -514,7 +675,7 @@ const ProjectDetailPage = () => {
 
                       <div className="post-card-content">
                         {post.title && <h4 className="post-title-content">{post.title}</h4>}
-                        <p className="post-text-content">{post.content}</p>
+                        <ReactMarkdown className="post-text-content md-rendered">{post.content}</ReactMarkdown>
 
                         {post.attachment_url && (
                           <div className="post-content-image-wrapper">
@@ -547,6 +708,16 @@ const ProjectDetailPage = () => {
                           <MessageSquare size={16} />
                           <span>{post.commentCount}</span>
                         </button>
+
+                        {user && (user.role === 'admin' || user.role === 'teacher' || post.author_id === user.id) && (
+                          <button
+                            className="action-btn-edit"
+                            onClick={() => navigate(`/community/posts/${post.id}`, { state: { openEdit: true } })}
+                            title="Chỉnh sửa bài viết"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        )}
 
                         <button
                           className="action-btn-report"
