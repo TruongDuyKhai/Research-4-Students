@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS articles (
   content TEXT,
   pdf_file_id INTEGER,
   status TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','published')),
+  min_level INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT
 );

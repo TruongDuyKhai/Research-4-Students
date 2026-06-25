@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, BookOpen, ChevronDown, ChevronRight, File, FileText, Pencil, Trash2 } from 'lucide-react';
+import { Plus, BookOpen, ChevronDown, ChevronRight, File, FileText, Pencil, Trash2, Lock } from 'lucide-react';
+import LevelBadge, { getLevel } from '../components/LevelBadge';
+import '../components/LevelBadge.css';
 import client from '../api/client';
 import SubjectFormModal from '../components/SubjectFormModal';
 import TopicFormModal from '../components/TopicFormModal';
@@ -402,36 +404,52 @@ const KnowledgePage = () => {
               </div>
             ) : (
               <div className="articles-list">
-                {articles.map((art) => (
-                  <div 
-                    key={art.id} 
-                    className="article-card"
-                    onClick={() => navigate(`/knowledge/articles/${art.id}`)}
-                  >
-                    <div className="article-card-header">
-                      <h4 className="article-title">{art.title}</h4>
-                      {art.pdf_file_id && (
-                        <span className="pdf-icon-indicator">
-                          <File size={12} />
-                          <span>PDF</span>
-                        </span>
+                {articles.map((art) => {
+                  const minLvl = art.min_level != null ? art.min_level : 1;
+                  const userLvl = user ? (user.role === 'student' ? getLevel(user.level_points || 0) : 99) : null;
+                  const isLocked = art.locked || (!isTeacherOrAdmin && minLvl > 0 && userLvl === null) || (!isTeacherOrAdmin && minLvl >= 2 && userLvl !== null && userLvl < minLvl);
+                  return (
+                    <div
+                      key={art.id}
+                      className={`article-card${isLocked ? ' article-card--locked' : ''}`}
+                      onClick={() => navigate(`/knowledge/articles/${art.id}`)}
+                      style={isLocked ? { cursor: 'pointer', opacity: 0.8 } : {}}
+                    >
+                      <div className="article-card-header">
+                        <h4 className="article-title">{art.title}</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          {minLvl > 1 && <LevelBadge level={minLvl} size="sm" />}
+                          {art.pdf_file_id && !isLocked && (
+                            <span className="pdf-icon-indicator">
+                              <File size={12} />
+                              <span>PDF</span>
+                            </span>
+                          )}
+                          {isLocked && <Lock size={14} style={{ color: 'var(--color-text-secondary)' }} />}
+                        </div>
+                      </div>
+                      {isLocked ? (
+                        <p className="article-snippet" style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
+                          {minLvl === 1 ? 'Yêu cầu đăng nhập để xem nội dung này.' : `Yêu cầu Level ${minLvl} để xem nội dung này.`}
+                        </p>
+                      ) : (
+                        <p className="article-snippet">
+                          {art.content
+                            ? art.content.replace(/[#*`_]/g, '')
+                            : t('knowledgePage.noTextContent')}
+                        </p>
                       )}
+                      <div className="article-meta-row">
+                        <span>{t('knowledgePage.createdLabel')} {new Date(art.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
+                        {isTeacherOrAdmin && (
+                          <span className={`article-status-badge status-${art.status}`}>
+                            {art.status}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    <p className="article-snippet">
-                      {art.content
-                        ? art.content.replace(/[#*`_]/g, '') // strip markdown markers for snippet
-                        : t('knowledgePage.noTextContent')}
-                    </p>
-                    <div className="article-meta-row">
-                      <span>{t('knowledgePage.createdLabel')} {new Date(art.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
-                      {isTeacherOrAdmin && (
-                        <span className={`article-status-badge status-${art.status}`}>
-                          {art.status}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

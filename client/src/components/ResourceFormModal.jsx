@@ -12,6 +12,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
   const [shortDesc, setShortDesc] = useState('');
   const [fullDesc, setFullDesc] = useState('');
   const [accessType, setAccessType] = useState('free');
+  const [minLevel, setMinLevel] = useState(1);
   
   // Icon file upload state
   const [iconFileId, setIconFileId] = useState(null);
@@ -36,6 +37,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
       setShortDesc(resourceToEdit.short_description || '');
       setFullDesc(resourceToEdit.full_description || '');
       setAccessType(resourceToEdit.access_type || 'free');
+      setMinLevel(resourceToEdit.min_level || 1);
       setIconFileId(resourceToEdit.icon_file_id || null);
       setIconUrl(resourceToEdit.icon_url || null);
       setTargetAudience(resourceToEdit.target_audience || []);
@@ -47,6 +49,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
       setShortDesc('');
       setFullDesc('');
       setAccessType('free');
+      setMinLevel(1);
       setIconFileId(null);
       setIconUrl(null);
       setTargetAudience([]);
@@ -137,6 +140,7 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
       short_description: shortDesc,
       full_description: fullDesc,
       access_type: accessType,
+      min_level: parseInt(minLevel, 10),
       icon_file_id: iconFileId,
       target_audience: targetAudience,
       features
@@ -210,6 +214,24 @@ const ResourceFormModal = ({ isOpen, onClose, onSuccess, resourceToEdit }) => {
                 <option value="paid">{t('resources.form.accessPaid')}</option>
               </select>
             </div>
+          </div>
+
+          {/* Min Level */}
+          <div className="form-group">
+            <label className="form-label">Yêu cầu Level tối thiểu</label>
+            <select
+              className="form-input"
+              value={minLevel}
+              onChange={(e) => setMinLevel(e.target.value)}
+              disabled={submitting}
+            >
+              <option value={0}>Level 0 (Công khai)</option>
+              <option value={1}>Level 1 (Cần đăng nhập)</option>
+              <option value={2}>Level 2 (≥ 50đ)</option>
+              <option value={3}>Level 3 (≥ 200đ)</option>
+              <option value={4}>Level 4 (≥ 500đ)</option>
+              <option value={5}>Level 5 (≥ 1000đ)</option>
+            </select>
           </div>
 
           {/* URL */}

@@ -15,6 +15,7 @@ const {
 } = require("../middleware");
 const { toJSON, fromJSON } = require("../utils/jsonField");
 const { verifyToken } = require("../utils/jwt");
+const { addStudentPoints } = require("../utils/levelSystem");
 
 const router = express.Router();
 
@@ -311,6 +312,9 @@ router.post(
             const created = communityDb
                 .prepare("SELECT * FROM posts WHERE id = ?")
                 .get(info.lastInsertRowid);
+
+            addStudentPoints(usersDb, req.user.id, 10);
+
             return res.status(201).json({
                 data: {
                     ...created,
@@ -655,6 +659,9 @@ router.post(
             const created = communityDb
                 .prepare("SELECT * FROM comments WHERE id = ?")
                 .get(info.lastInsertRowid);
+
+            addStudentPoints(usersDb, req.user.id, 3);
+
             return res.status(201).json({
                 data: {
                     ...created,
@@ -815,6 +822,7 @@ router.post("/reactions", requireAuth, (req, res) => {
                 )
                 .run(target_type, target_id, req.user.id, reactionType);
             active = true;
+            addStudentPoints(usersDb, req.user.id, 1);
         }
 
         // Fetch refreshed count

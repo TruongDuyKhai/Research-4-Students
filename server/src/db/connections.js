@@ -31,6 +31,17 @@ dbNames.forEach((name) => {
   connections[`${name}Db`] = db;
 });
 
+// Migrations: add new columns to existing databases (safe to run multiple times)
+const migrations = [
+  [connections.usersDb,      "ALTER TABLE users ADD COLUMN level_points INTEGER NOT NULL DEFAULT 0"],
+  [connections.knowledgeDb,  "ALTER TABLE articles ADD COLUMN min_level INTEGER NOT NULL DEFAULT 1"],
+  [connections.guidesDb,     "ALTER TABLE guides ADD COLUMN min_level INTEGER NOT NULL DEFAULT 1"],
+  [connections.resourcesDb,  "ALTER TABLE research_websites ADD COLUMN min_level INTEGER NOT NULL DEFAULT 1"],
+];
+for (const [db, sql] of migrations) {
+  try { db.exec(sql); } catch (_) { /* column already exists */ }
+}
+
 module.exports = {
   usersDb: connections.usersDb,
   communityDb: connections.communityDb,

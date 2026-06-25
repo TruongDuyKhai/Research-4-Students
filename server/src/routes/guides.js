@@ -2,8 +2,24 @@ const express = require('express');
 const { guidesDb } = require('../db/connections');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { getFileById, refreshFileUrl } = require('../services/discordStorage');
+const { verifyToken } = require('../utils/jwt');
+const usersModel = require('../models/usersModel');
+const { getLevel } = require('../utils/levelSystem');
 
 const router = express.Router();
+
+function parseOptionalAuth(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) return null;
+  const token = authHeader.substring(7).trim();
+  try {
+    const decoded = verifyToken(token);
+    if (decoded.id === 0 && decoded.role === 'admin') return { id: 0, role: 'admin' };
+    const user = usersModel.findById(decoded.id);
+    if (user && user.status !== 'banned') return user;
+  } catch (_) {}
+  return null;
+}
 
 /**
  * GET /api/guides
@@ -11,6 +27,7 @@ const router = express.Router();
  */
 router.get('/', (req, res) => {
   const { category, access_level } = req.query;
+  const reqUser = parseOptionalAuth(req);
 
   const page = parseInt(req.query.page || '1', 10);
   const limit = parseInt(req.query.limit || '10', 10);
@@ -48,14 +65,28 @@ router.get('/', (req, res) => {
     // Get rows
     const queryParams = [...params, limit, offset];
     const list = guidesDb.prepare(`
-      SELECT g.id, g.title, g.description, g.category, g.access_level
+      SELECT g.id, g.title, g.description, g.category, g.access_level, g.min_level
       ` + baseQuery + `
       ORDER BY g.created_at DESC
       LIMIT ? OFFSET ?
     `).all(...queryParams);
 
+    const guideUserLevel = (() => {
+      if (!reqUser) return null;
+      if (reqUser.role === 'admin' || reqUser.role === 'teacher') return 99;
+      return getLevel(usersModel.findById(reqUser.id)?.level_points || 0);
+    })();
+
+    const listWithLocked = list.map(g => {
+      const gMinLevel = g.min_level != null ? g.min_level : 1;
+      let gLocked = false;
+      if (gMinLevel > 0 && guideUserLevel === null) gLocked = true;
+      else if (gMinLevel >= 2 && guideUserLevel !== null && guideUserLevel < gMinLevel) gLocked = true;
+      return { ...g, locked: gLocked };
+    });
+
     return res.status(200).json({
-      data: list,
+      data: listWithLocked,
       pagination: {
         page,
         limit,
@@ -132,6 +163,23 @@ router.get('/:id/download', requireAuth, async (req, res) => {
       });
     }
 
+    // Level gating check
+    // min_level=0: public, no restriction
+    // min_level=1: requires login (already enforced by requireAuth)
+    // min_level=2+: requires student level
+    const minLevel = guide.min_level != null ? guide.min_level : 1;
+    if (minLevel >= 2 && req.user.role === 'student') {
+      const userPoints = usersModel.findById(req.user.id)?.level_points || 0;
+      if (getLevel(userPoints) < minLevel) {
+        return res.status(403).json({
+          error: {
+            code: 'LEVEL_REQUIRED',
+            message: `Bạn cần Level ${minLevel} để tải xuống tài liệu này`
+          }
+        });
+      }
+    }
+
     // Fetch file details
     let file = getFileById(guide.file_id);
     if (!file) {
@@ -177,7 +225,7 @@ router.get('/:id/download', requireAuth, async (req, res) => {
  * Admin/Teacher: Create a new guide
  */
 router.post('/', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
-  const { title, description, category, file_id, access_level } = req.body;
+  const { title, description, category, file_id, access_level, min_level } = req.body;
 
   if (!title || !file_id) {
     return res.status(400).json({
@@ -197,6 +245,8 @@ router.post('/', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
     });
   }
 
+  const minLevelVal = Number.isInteger(min_level) && min_level >= 0 && min_level <= 5 ? min_level : 1;
+
   try {
     // Verify file_id exists
     const file = getFileById(file_id);
@@ -211,15 +261,16 @@ router.post('/', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
 
     const info = guidesDb.prepare(`
       INSERT INTO guides (
-        created_by, title, description, category, file_id, access_level, status
-      ) VALUES (?, ?, ?, ?, ?, ?, 'published')
+        created_by, title, description, category, file_id, access_level, min_level, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'published')
     `).run(
       req.user.id,
       title,
       description || null,
       category || null,
       file_id,
-      access_level || 'free'
+      access_level || 'free',
+      minLevelVal
     );
 
     const created = guidesDb.prepare('SELECT * FROM guides WHERE id = ?').get(info.lastInsertRowid);
@@ -241,7 +292,7 @@ router.post('/', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
  */
 router.patch('/:id', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
   const { id } = req.params;
-  const { title, description, category, file_id, access_level, status } = req.body;
+  const { title, description, category, file_id, access_level, min_level, status } = req.body;
 
   try {
     const guide = guidesDb.prepare('SELECT * FROM guides WHERE id = ?').get(id);
@@ -315,6 +366,16 @@ router.patch('/:id', requireAuth, requireRole(['admin', 'teacher']), (req, res) 
       }
       updates.push('status = ?');
       values.push(status);
+    }
+    if (min_level !== undefined) {
+      const lvl = parseInt(min_level, 10);
+      if (!Number.isInteger(lvl) || lvl < 0 || lvl > 5) {
+        return res.status(400).json({
+          error: { code: 'BAD_REQUEST', message: 'min_level must be an integer between 0 and 5' }
+        });
+      }
+      updates.push('min_level = ?');
+      values.push(lvl);
     }
 
     if (updates.length > 0) {

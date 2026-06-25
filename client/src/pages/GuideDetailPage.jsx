@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, BookOpen, Download, Edit2, Trash2, Calendar, Folder, Lock, Unlock, LogIn, X } from 'lucide-react';
+import LevelBadge, { getLevel } from '../components/LevelBadge';
+import '../components/LevelBadge.css';
 import ReactMarkdown from 'react-markdown';
 import client from '../api/client';
 import GuideFormModal from '../components/GuideFormModal';
@@ -86,6 +88,8 @@ const GuideDetailPage = () => {
       const errCode = err.response?.data?.error?.code;
       if (errCode === 'PRO_FEATURE_DEMO') {
         setProModalOpen(true);
+      } else if (errCode === 'LEVEL_REQUIRED') {
+        alert(err.response?.data?.error?.message || 'Bạn chưa đủ level để tải xuống tài liệu này.');
       } else {
         console.error('Download preparation failed:', err);
         alert(err.response?.data?.error?.message || t('guideDetail.downloadError'));
@@ -117,6 +121,13 @@ const GuideDetailPage = () => {
   }
 
   const isPro = guide.access_level === 'pro';
+  const minLvl = guide.min_level != null ? guide.min_level : 1;
+  const isTeacherOrAdmin = user && (user.role === 'teacher' || user.role === 'admin');
+  const userLvl = user ? (user.role === 'student' ? getLevel(user.level_points || 0) : 99) : null;
+  const isLevelLocked = !isTeacherOrAdmin && (
+    (minLvl > 0 && userLvl === null) ||
+    (minLvl >= 2 && userLvl !== null && userLvl < minLvl)
+  );
 
   return (
     <div className="guide-detail-container">
@@ -168,6 +179,7 @@ const GuideDetailPage = () => {
                 {isPro ? <Lock size={12} style={{ marginRight: '4px' }} /> : <Unlock size={12} style={{ marginRight: '4px' }} />}
                 {guide.access_level.toUpperCase()}
               </span>
+              {minLvl > 1 && <LevelBadge level={minLvl} size="sm" />}
             </div>
             <h2 className="guide-detail-title">{guide.title}</h2>
             
@@ -200,14 +212,24 @@ const GuideDetailPage = () => {
               </div>
             )}
             
-            <button 
-              className={`btn-download-trigger ${isPro ? 'pro-trigger' : 'free-trigger'}`}
-              onClick={handleDownload}
-              disabled={downloading}
-            >
-              <Download size={18} />
-              <span>{downloading ? t('guideDetail.downloading') : t('guideDetail.downloadBtn')}</span>
-            </button>
+            {isLevelLocked ? (
+              <div className="level-lock-banner" style={{ marginTop: 0 }}>
+                <Lock size={18} />
+                {minLvl === 1
+                  ? <span>Bạn cần <strong>đăng nhập</strong> để tải xuống tài liệu này</span>
+                  : <span>Yêu cầu <strong>Level {minLvl}</strong> để tải xuống</span>
+                }
+              </div>
+            ) : (
+              <button
+                className={`btn-download-trigger ${isPro ? 'pro-trigger' : 'free-trigger'}`}
+                onClick={handleDownload}
+                disabled={downloading}
+              >
+                <Download size={18} />
+                <span>{downloading ? t('guideDetail.downloading') : t('guideDetail.downloadBtn')}</span>
+              </button>
+            )}
           </div>
         </div>
 

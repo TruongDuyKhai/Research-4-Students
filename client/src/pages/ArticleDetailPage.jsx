@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { ArrowLeft, BookOpen, Download, Edit2, Trash2, Calendar, Folder, File, ExternalLink, ChevronRight } from 'lucide-react';
+import { ArrowLeft, BookOpen, Download, Edit2, Trash2, Calendar, Folder, File, ExternalLink, ChevronRight, Lock } from 'lucide-react';
+import LevelBadge, { getLevel } from '../components/LevelBadge';
+import '../components/LevelBadge.css';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import client from '../api/client';
@@ -188,7 +190,10 @@ const ArticleDetailPage = () => {
         {/* Header Title Row */}
         <div className="article-detail-header">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexGrow: 1 }}>
-            <h2 className="article-detail-title">{article.title}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <h2 className="article-detail-title">{article.title}</h2>
+              {(article.min_level || 1) > 1 && <LevelBadge level={article.min_level} size="md" />}
+            </div>
             <div className="article-detail-meta">
               <Calendar size={14} />
               <span>{t('articleDetail.createdOn')} {new Date(article.created_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</span>
@@ -223,7 +228,21 @@ const ArticleDetailPage = () => {
 
         {/* Content Block */}
         <div className="article-content-block">
-          {article.content ? (
+          {article.locked ? (
+            <div className="level-lock-banner">
+              <Lock size={18} />
+              {article.lock_reason === 'LOGIN_REQUIRED' ? (
+                <span>
+                  Bạn cần <strong>đăng nhập</strong> để xem nội dung này.
+                </span>
+              ) : (
+                <span>
+                  Nội dung này yêu cầu <strong>Level {article.min_level}</strong> để xem.
+                  Hãy đăng bài, bình luận và react để tích lũy điểm!
+                </span>
+              )}
+            </div>
+          ) : article.content ? (
             <div className="markdown-body">
               <ReactMarkdown className="md-rendered">{article.content}</ReactMarkdown>
             </div>

@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
   language_pref TEXT NOT NULL DEFAULT 'en',
   theme_pref TEXT NOT NULL DEFAULT 'system',
   status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active','banned')),
+  level_points INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT
 );

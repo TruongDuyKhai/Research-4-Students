@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Camera, Lock, Eye, CheckCircle2, AlertCircle, User, Key, Settings, Globe, Palette } from 'lucide-react';
+import { Camera, Lock, Eye, CheckCircle2, AlertCircle, User, Key, Settings, Globe, Palette, Star } from 'lucide-react';
+import LevelBadge from '../components/LevelBadge';
+import '../components/LevelBadge.css';
 import client from '../api/client';
 import './ProfilePage.css';
 import Avatar from '../components/Avatar';
@@ -222,7 +224,46 @@ const ProfilePage = () => {
                 <User size={12} style={{ marginRight: '4px' }} />
                 {user.role.toUpperCase()}
               </span>
+              {isStudent && <LevelBadge level={user.level} size="sm" />}
             </div>
+
+            {isStudent && (
+              <div className="level-progress-section" style={{ width: '100%' }}>
+                <div className="level-progress-header">
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <Star size={12} />
+                    {user.level < 5 ? `Level ${user.level} → ${user.level + 1}` : 'Level 5 (Max)'}
+                  </span>
+                  <span className="level-progress-points">
+                    {user.level_points || 0} điểm
+                  </span>
+                </div>
+                {user.level < 5 ? (
+                  <>
+                    <div className="level-progress-bar-track">
+                      <div
+                        className={`level-progress-bar-fill lv${user.level}`}
+                        style={{
+                          width: (() => {
+                            const thresholds = [0, 50, 200, 500, 1000];
+                            const pts = user.level_points || 0;
+                            const lvl = user.level || 1;
+                            const from = thresholds[lvl - 1];
+                            const to = thresholds[lvl];
+                            return `${Math.min(100, Math.round(((pts - from) / (to - from)) * 100))}%`;
+                          })()
+                        }}
+                      />
+                    </div>
+                    <span className="level-progress-points" style={{ fontSize: '0.7rem' }}>
+                      {user.next_level_threshold - (user.level_points || 0)} điểm nữa để lên Level {(user.level || 1) + 1}
+                    </span>
+                  </>
+                ) : (
+                  <p className="level-max-label">Đã đạt cấp độ cao nhất!</p>
+                )}
+              </div>
+            )}
 
             <button
               className="btn-view-public-profile"

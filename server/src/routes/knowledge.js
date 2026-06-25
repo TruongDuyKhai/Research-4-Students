@@ -3,6 +3,7 @@ const { knowledgeDb, filesDb } = require('../db/connections');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { verifyToken } = require('../utils/jwt');
 const usersModel = require('../models/usersModel');
+const { getLevel } = require('../utils/levelSystem');
 
 const router = express.Router();
 const SLUG_REGEX = /^[a-z0-9-]+$/;
@@ -481,16 +482,28 @@ router.get('/articles', (req, res) => {
       LIMIT ? OFFSET ?
     `).all(...queryParams);
 
-    // Map files cdn_urls
+    // Determine requester level for locked flag
+    const listUserLevel = (() => {
+      if (!reqUser) return null; // not logged in
+      if (reqUser.role === 'admin' || reqUser.role === 'teacher') return 99;
+      return getLevel(usersModel.findById(reqUser.id)?.level_points || 0);
+    })();
+
+    // Map files cdn_urls and locked state
     const articlesWithFiles = articles.map(art => {
       let pdfUrl = null;
       if (art.pdf_file_id) {
         const file = filesDb.prepare('SELECT cdn_url FROM files WHERE id = ?').get(art.pdf_file_id);
         pdfUrl = file ? file.cdn_url : null;
       }
+      const artMinLevel = art.min_level != null ? art.min_level : 1;
+      let artLocked = false;
+      if (artMinLevel > 0 && listUserLevel === null) artLocked = true;
+      else if (artMinLevel >= 2 && listUserLevel !== null && listUserLevel < artMinLevel) artLocked = true;
       return {
         ...art,
-        pdf_url: pdfUrl
+        pdf_url: pdfUrl,
+        locked: artLocked
       };
     });
 
@@ -544,10 +557,33 @@ router.get('/articles/:id', (req, res) => {
       }
     }
 
+    // Level gating
+    // min_level=0: public (no login needed)
+    // min_level=1: requires login (any student)
+    // min_level=2-5: requires accumulated level
+    const minLevel = article.min_level != null ? article.min_level : 1;
+    let locked = false;
+    let lockReason = null;
+
+    if (minLevel === 0) {
+      locked = false; // always public
+    } else if (!reqUser) {
+      locked = true;
+      lockReason = 'LOGIN_REQUIRED';
+    } else if (reqUser.role !== 'admin' && reqUser.role !== 'teacher') {
+      if (minLevel >= 2) {
+        const userPoints = usersModel.findById(reqUser.id)?.level_points || 0;
+        if (getLevel(userPoints) < minLevel) {
+          locked = true;
+          lockReason = 'LEVEL_REQUIRED';
+        }
+      }
+    }
+
     // Fetch attachment file link
     let pdfUrl = null;
     let originalName = null;
-    if (article.pdf_file_id) {
+    if (!locked && article.pdf_file_id) {
       const file = filesDb.prepare('SELECT cdn_url, original_name FROM files WHERE id = ?').get(article.pdf_file_id);
       if (file) {
         pdfUrl = file.cdn_url;
@@ -557,8 +593,11 @@ router.get('/articles/:id', (req, res) => {
 
     const detailedArticle = {
       ...article,
-      pdf_url: pdfUrl,
-      pdf_name: originalName
+      pdf_url: locked ? null : pdfUrl,
+      pdf_name: locked ? null : originalName,
+      content: locked ? null : article.content,
+      locked,
+      lock_reason: lockReason
     };
 
     return res.status(200).json({ data: detailedArticle });
@@ -578,7 +617,7 @@ router.get('/articles/:id', (req, res) => {
  * Admin/Teacher: Create a new article
  */
 router.post('/articles', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
-  const { topic_id, title, content, pdf_file_id, status } = req.body;
+  const { topic_id, title, content, pdf_file_id, status, min_level } = req.body;
 
   if (!topic_id || !title || !status || !['draft', 'published'].includes(status)) {
     return res.status(400).json({
@@ -588,6 +627,8 @@ router.post('/articles', requireAuth, requireRole(['admin', 'teacher']), (req, r
       }
     });
   }
+
+  const minLevelVal = Number.isInteger(min_level) && min_level >= 0 && min_level <= 5 ? min_level : 1;
 
   try {
     const topic = knowledgeDb.prepare('SELECT id FROM topics WHERE id = ?').get(topic_id);
@@ -601,9 +642,9 @@ router.post('/articles', requireAuth, requireRole(['admin', 'teacher']), (req, r
     }
 
     const info = knowledgeDb.prepare(`
-      INSERT INTO articles (topic_id, author_id, title, content, pdf_file_id, status)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(topic_id, req.user.id, title, content || null, pdf_file_id || null, status);
+      INSERT INTO articles (topic_id, author_id, title, content, pdf_file_id, status, min_level)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(topic_id, req.user.id, title, content || null, pdf_file_id || null, status, minLevelVal);
 
     const created = knowledgeDb.prepare('SELECT * FROM articles WHERE id = ?').get(info.lastInsertRowid);
     return res.status(201).json({ data: created });
@@ -624,7 +665,7 @@ router.post('/articles', requireAuth, requireRole(['admin', 'teacher']), (req, r
  */
 router.patch('/articles/:id', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
   const { id } = req.params;
-  const { title, content, pdf_file_id, status, topic_id } = req.body;
+  const { title, content, pdf_file_id, status, topic_id, min_level } = req.body;
 
   try {
     const article = knowledgeDb.prepare('SELECT * FROM articles WHERE id = ?').get(id);
@@ -686,6 +727,16 @@ router.patch('/articles/:id', requireAuth, requireRole(['admin', 'teacher']), (r
       }
       updates.push('topic_id = ?');
       values.push(topic_id);
+    }
+    if (min_level !== undefined) {
+      const lvl = parseInt(min_level, 10);
+      if (!Number.isInteger(lvl) || lvl < 0 || lvl > 5) {
+        return res.status(400).json({
+          error: { code: 'BAD_REQUEST', message: 'min_level must be an integer between 0 and 5' }
+        });
+      }
+      updates.push('min_level = ?');
+      values.push(lvl);
     }
 
     if (updates.length > 0) {

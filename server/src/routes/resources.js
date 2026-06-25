@@ -2,9 +2,25 @@ const express = require('express');
 const { resourcesDb, filesDb } = require('../db/connections');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { toJSON, fromJSON } = require('../utils/jsonField');
+const { verifyToken } = require('../utils/jwt');
+const usersModel = require('../models/usersModel');
+const { getLevel } = require('../utils/levelSystem');
 
 const router = express.Router();
 const URL_REGEX = /^https?:\/\//i;
+
+function parseOptionalAuth(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.toLowerCase().startsWith('bearer ')) return null;
+  const token = authHeader.substring(7).trim();
+  try {
+    const decoded = verifyToken(token);
+    if (decoded.id === 0 && decoded.role === 'admin') return { id: 0, role: 'admin' };
+    const user = usersModel.findById(decoded.id);
+    if (user && user.status !== 'banned') return user;
+  } catch (_) {}
+  return null;
+}
 
 /**
  * Helper to fetch complete website resource info with resolved files cdn_urls and parsed arrays
@@ -64,11 +80,18 @@ router.get('/', (req, res) => {
     // Get rows
     const queryParams = [...params, limit, offset];
     const list = resourcesDb.prepare(`
-      SELECT rw.id, rw.name, rw.url, rw.short_description, rw.access_type, rw.icon_file_id, rw.created_by
+      SELECT rw.id, rw.name, rw.url, rw.short_description, rw.access_type, rw.min_level, rw.icon_file_id, rw.created_by
       ` + baseQuery + `
       ORDER BY rw.created_at DESC
       LIMIT ? OFFSET ?
     `).all(...queryParams);
+
+    const reqUser = parseOptionalAuth(req);
+    const resUserLevel = (() => {
+      if (!reqUser) return null;
+      if (reqUser.role === 'admin' || reqUser.role === 'teacher') return 99;
+      return getLevel(usersModel.findById(reqUser.id)?.level_points || 0);
+    })();
 
     // Resolve icon_urls
     const formattedList = list.map(item => {
@@ -77,12 +100,18 @@ router.get('/', (req, res) => {
         const file = filesDb.prepare('SELECT cdn_url FROM files WHERE id = ?').get(item.icon_file_id);
         iconUrl = file ? file.cdn_url : null;
       }
+      const minLevel = item.min_level != null ? item.min_level : 1;
+      let locked = false;
+      if (minLevel > 0 && resUserLevel === null) locked = true;
+      else if (minLevel >= 2 && resUserLevel !== null && resUserLevel < minLevel) locked = true;
       return {
         id: item.id,
         name: item.name,
         url: item.url,
         short_description: item.short_description,
         access_type: item.access_type,
+        min_level: minLevel,
+        locked,
         icon_url: iconUrl,
         created_by: item.created_by
       };
@@ -142,7 +171,7 @@ router.get('/:id', (req, res) => {
  * Admin/Teacher: Create a new research website entry
  */
 router.post('/', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
-  const { name, url, short_description, full_description, access_type, icon_file_id, target_audience, features } = req.body;
+  const { name, url, short_description, full_description, access_type, icon_file_id, target_audience, features, min_level } = req.body;
 
   // Basic validation
   if (!name || !url || !access_type) {
@@ -194,12 +223,14 @@ router.post('/', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
     }
   }
 
+  const minLevelVal = Number.isInteger(min_level) && min_level >= 0 && min_level <= 5 ? min_level : 1;
+
   try {
     const info = resourcesDb.prepare(`
       INSERT INTO research_websites (
         created_by, name, url, short_description, full_description,
-        access_type, icon_file_id, target_audience, features, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')
+        access_type, min_level, icon_file_id, target_audience, features, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published')
     `).run(
       req.user.id,
       name,
@@ -207,6 +238,7 @@ router.post('/', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
       short_description || null,
       full_description || null,
       access_type,
+      minLevelVal,
       icon_file_id || null,
       toJSON(target_audience || []),
       toJSON(features || [])
@@ -231,7 +263,7 @@ router.post('/', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
  */
 router.patch('/:id', requireAuth, requireRole(['admin', 'teacher']), (req, res) => {
   const { id } = req.params;
-  const { name, url, short_description, full_description, access_type, icon_file_id, target_audience, features } = req.body;
+  const { name, url, short_description, full_description, access_type, icon_file_id, target_audience, features, min_level } = req.body;
 
   try {
     const resource = resourcesDb.prepare('SELECT * FROM research_websites WHERE id = ?').get(id);
@@ -327,6 +359,16 @@ router.patch('/:id', requireAuth, requireRole(['admin', 'teacher']), (req, res) 
       }
       updates.push('features = ?');
       values.push(toJSON(features));
+    }
+    if (min_level !== undefined) {
+      const lvl = parseInt(min_level, 10);
+      if (!Number.isInteger(lvl) || lvl < 0 || lvl > 5) {
+        return res.status(400).json({
+          error: { code: 'BAD_REQUEST', message: 'min_level must be an integer between 0 and 5' }
+        });
+      }
+      updates.push('min_level = ?');
+      values.push(lvl);
     }
 
     if (updates.length > 0) {

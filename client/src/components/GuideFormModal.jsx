@@ -9,6 +9,7 @@ const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
   const [accessLevel, setAccessLevel] = useState('free');
+  const [minLevel, setMinLevel] = useState(1);
   const [status, setStatus] = useState('published');
   
   // File upload state
@@ -26,6 +27,7 @@ const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
       setDescription(guideToEdit.description || '');
       setCategory(guideToEdit.category || '');
       setAccessLevel(guideToEdit.access_level || 'free');
+      setMinLevel(guideToEdit.min_level || 1);
       setStatus(guideToEdit.status || 'published');
       setFileId(guideToEdit.file_id || null);
       
@@ -51,6 +53,7 @@ const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
       setDescription('');
       setCategory('');
       setAccessLevel('free');
+      setMinLevel(1);
       setStatus('published');
       setFileId(null);
       setFileName(null);
@@ -107,6 +110,7 @@ const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
       description,
       category: category.trim() || 'General',
       access_level: accessLevel,
+      min_level: parseInt(minLevel, 10),
       file_id: fileId,
       status
     };
@@ -166,9 +170,9 @@ const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Category</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 placeholder="e.g. Phương pháp luận, Đề cương"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
@@ -177,7 +181,7 @@ const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
             </div>
             <div className="form-group">
               <label className="form-label">Access Level *</label>
-              <select 
+              <select
                 className="form-input"
                 value={accessLevel}
                 onChange={(e) => setAccessLevel(e.target.value)}
@@ -190,18 +194,36 @@ const GuideFormModal = ({ isOpen, onClose, onSuccess, guideToEdit }) => {
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Status *</label>
-            <select 
-              className="form-input"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              required
-              disabled={submitting}
-            >
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-            </select>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Yêu cầu Level tối thiểu</label>
+              <select
+                className="form-input"
+                value={minLevel}
+                onChange={(e) => setMinLevel(e.target.value)}
+                disabled={submitting}
+              >
+                <option value={0}>Level 0 (Công khai)</option>
+                <option value={1}>Level 1 (Cần đăng nhập)</option>
+                <option value={2}>Level 2 (≥ 50đ)</option>
+                <option value={3}>Level 3 (≥ 200đ)</option>
+                <option value={4}>Level 4 (≥ 500đ)</option>
+                <option value={5}>Level 5 (≥ 1000đ)</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Status *</label>
+              <select
+                className="form-input"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                required
+                disabled={submitting}
+              >
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
           </div>
 
           {/* PDF Attachment Selector */}

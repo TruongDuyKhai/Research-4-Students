@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { Plus, BookOpen, FileText, ChevronRight, Lock, Unlock } from 'lucide-react';
+import LevelBadge, { getLevel } from '../components/LevelBadge';
+import '../components/LevelBadge.css';
 import client from '../api/client';
 import GuideFormModal from '../components/GuideFormModal';
 import './GuidesPage.css';
@@ -153,16 +155,20 @@ const GuidesPage = () => {
         <div className="guides-list">
           {guides.map((g) => {
             const isPro = g.access_level === 'pro';
+            const minLvl = g.min_level != null ? g.min_level : 1;
+            const userLvl = user ? (user.role === 'student' ? getLevel(user.level_points || 0) : 99) : null;
+            const isLocked = g.locked || (!isTeacherOrAdmin && minLvl > 0 && userLvl === null) || (!isTeacherOrAdmin && minLvl >= 2 && userLvl !== null && userLvl < minLvl);
             return (
-              <div 
-                key={g.id} 
+              <div
+                key={g.id}
                 className="guide-card-horizontal"
                 onClick={() => navigate(`/guides/${g.id}`)}
+                style={isLocked ? { opacity: 0.85, cursor: 'pointer' } : {}}
               >
                 {/* Left side: Icon */}
                 <div className="guide-card-icon-container">
                   <div className={`guide-card-icon-circle ${isPro ? 'icon-pro' : 'icon-free'}`}>
-                    <FileText size={24} />
+                    {isLocked ? <Lock size={24} /> : <FileText size={24} />}
                   </div>
                 </div>
 
@@ -170,11 +176,18 @@ const GuidesPage = () => {
                 <div className="guide-card-body">
                   <span className="guide-card-category">{g.category || t('guides.general')}</span>
                   <h4 className="guide-card-title">{g.title}</h4>
-                  <p className="guide-card-description">{g.description || t('guides.noDescription')}</p>
+                  {isLocked ? (
+                    <p className="guide-card-description" style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
+                      {minLvl === 1 ? 'Yêu cầu đăng nhập để tải xuống.' : `Yêu cầu Level ${minLvl} để tải xuống.`}
+                    </p>
+                  ) : (
+                    <p className="guide-card-description">{g.description || t('guides.noDescription')}</p>
+                  )}
                 </div>
 
                 {/* Right side: Badge and Button */}
                 <div className="guide-card-actions">
+                  {minLvl > 1 && <LevelBadge level={minLvl} size="sm" />}
                   <span className={`guide-access-badge badge-${g.access_level}`}>
                     {isPro ? <Lock size={12} style={{ marginRight: '4px' }} /> : <Unlock size={12} style={{ marginRight: '4px' }} />}
                     {g.access_level.toUpperCase()}

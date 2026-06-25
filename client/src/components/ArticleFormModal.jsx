@@ -13,6 +13,7 @@ const ArticleFormModal = ({ isOpen, onClose, onSuccess, articleToEdit, activeSub
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('published');
+  const [minLevel, setMinLevel] = useState(1);
   
   // PDF upload state
   const [pdfFileId, setPdfFileId] = useState(null);
@@ -62,6 +63,7 @@ const ArticleFormModal = ({ isOpen, onClose, onSuccess, articleToEdit, activeSub
       setTitle(articleToEdit.title || '');
       setContent(articleToEdit.content || '');
       setStatus(articleToEdit.status || 'published');
+      setMinLevel(articleToEdit.min_level || 1);
       setPdfFileId(articleToEdit.pdf_file_id || null);
       setPdfFileName(articleToEdit.pdf_name || null);
       
@@ -75,6 +77,7 @@ const ArticleFormModal = ({ isOpen, onClose, onSuccess, articleToEdit, activeSub
       setTitle('');
       setContent('');
       setStatus('published');
+      setMinLevel(1);
       setPdfFileId(null);
       setPdfFileName(null);
       
@@ -142,7 +145,8 @@ const ArticleFormModal = ({ isOpen, onClose, onSuccess, articleToEdit, activeSub
       title,
       content,
       pdf_file_id: pdfFileId,
-      status
+      status,
+      min_level: parseInt(minLevel, 10)
     };
 
     try {
@@ -237,18 +241,36 @@ const ArticleFormModal = ({ isOpen, onClose, onSuccess, articleToEdit, activeSub
             </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Publication Status *</label>
-            <select 
-              className="form-input"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              required
-              disabled={submitting}
-            >
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-            </select>
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Publication Status *</label>
+              <select
+                className="form-input"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+                required
+                disabled={submitting}
+              >
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Yêu cầu Level tối thiểu</label>
+              <select
+                className="form-input"
+                value={minLevel}
+                onChange={(e) => setMinLevel(e.target.value)}
+                disabled={submitting}
+              >
+                <option value={0}>Level 0 (Công khai)</option>
+                <option value={1}>Level 1 (Cần đăng nhập)</option>
+                <option value={2}>Level 2 (≥ 50đ)</option>
+                <option value={3}>Level 3 (≥ 200đ)</option>
+                <option value={4}>Level 4 (≥ 500đ)</option>
+                <option value={5}>Level 5 (≥ 1000đ)</option>
+              </select>
+            </div>
           </div>
 
           {/* PDF Attachment Selector */}

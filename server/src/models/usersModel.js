@@ -1,4 +1,5 @@
 const { usersDb, filesDb } = require('../db/connections');
+const { getLevel, getNextLevelThreshold } = require('../utils/levelSystem');
 
 /**
  * Find user by email
@@ -137,9 +138,10 @@ function getTeacherProfile(userId) {
 
 function getFullUserProfile(userId) {
   const profile = usersDb.prepare(`
-    SELECT 
-      u.id, u.role, u.email, u.must_change_password, u.username, u.display_name, 
-      u.avatar_file_id, u.bio, u.language_pref, u.theme_pref, u.status, u.created_at, u.updated_at,
+    SELECT
+      u.id, u.role, u.email, u.must_change_password, u.username, u.display_name,
+      u.avatar_file_id, u.bio, u.language_pref, u.theme_pref, u.status,
+      u.level_points, u.created_at, u.updated_at,
       tp.employee_code, tp.department
     FROM users u
     LEFT JOIN teacher_profiles tp ON u.id = tp.user_id
@@ -157,6 +159,11 @@ function getFullUserProfile(userId) {
       delete profile.department;
     }
     profile.must_change_password = !!profile.must_change_password;
+    if (profile.role === 'student') {
+      const pts = profile.level_points || 0;
+      profile.level = getLevel(pts);
+      profile.next_level_threshold = getNextLevelThreshold(pts);
+    }
   }
   return profile;
 }

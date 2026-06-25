@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS research_websites (
   icon_file_id INTEGER,
   target_audience TEXT,
   features TEXT,
+  min_level INTEGER NOT NULL DEFAULT 1,
   status TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','published')),
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT
