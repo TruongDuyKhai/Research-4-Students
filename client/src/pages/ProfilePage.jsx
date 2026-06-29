@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { Camera, Lock, Eye, CheckCircle2, AlertCircle, User, Key, Settings, Globe, Palette, Star } from 'lucide-react';
+import { Camera, Lock, Eye, CheckCircle2, AlertCircle, User, Key, Settings, Globe, Palette, Coins } from 'lucide-react';
 import LevelBadge from '../components/LevelBadge';
+import CoinBalance from '../components/CoinBalance';
 import '../components/LevelBadge.css';
 import client from '../api/client';
 import './ProfilePage.css';
@@ -231,12 +232,10 @@ const ProfilePage = () => {
               <div className="level-progress-section" style={{ width: '100%' }}>
                 <div className="level-progress-header">
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <Star size={12} />
+                    <Coins size={12} />
                     {user.level < 5 ? `Level ${user.level} → ${user.level + 1}` : 'Level 5 (Max)'}
                   </span>
-                  <span className="level-progress-points">
-                    {user.level_points || 0} điểm
-                  </span>
+                  <CoinBalance amount={user.level_points || 0} size="sm" />
                 </div>
                 {user.level < 5 ? (
                   <>
@@ -256,7 +255,7 @@ const ProfilePage = () => {
                       />
                     </div>
                     <span className="level-progress-points" style={{ fontSize: '0.7rem' }}>
-                      {user.next_level_threshold - (user.level_points || 0)} điểm nữa để lên Level {(user.level || 1) + 1}
+                      Cần thêm <strong>{user.next_level_threshold - (user.level_points || 0)} V</strong> để lên Level {(user.level || 1) + 1}
                     </span>
                   </>
                 ) : (

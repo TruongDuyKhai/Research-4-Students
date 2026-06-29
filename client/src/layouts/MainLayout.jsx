@@ -18,6 +18,7 @@ import {
   Menu
 } from 'lucide-react';
 import Avatar from '../components/Avatar';
+import CoinBalance from '../components/CoinBalance';
 import './MainLayout.css';
 
 const MainLayout = () => {
@@ -171,6 +172,9 @@ const MainLayout = () => {
           <h1 className="page-title">{getPageTitle()}</h1>
           
           <div className="topbar-right">
+            {user && user.role === 'student' && (
+              <CoinBalance amount={user.level_points || 0} size="sm" />
+            )}
             {user ? (
               /* Logged In Widget */
               <div className="user-widget" ref={dropdownRef}>
