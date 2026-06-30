@@ -173,7 +173,7 @@ const SearchPage = () => {
                     >
                       <span className="drop-trending-rank">#{i + 1}</span>
                       <span style={{ flex: 1 }}>{item.term}</span>
-                      <span className="drop-tag">{item.count}</span>
+                      {item.count > 0 && <span className="drop-tag">{item.count}</span>}
                     </div>
                   ))}
                 </>
@@ -314,7 +314,8 @@ const SearchPage = () => {
                     onClick={() => handleTrendingClick(item.term)}
                   >
                     <span className="search-trending-chip-rank">#{i + 1}</span>
-                    {item.term}
+                    <span>{item.term}</span>
+                    {item.count > 0 && <span className="search-trending-chip-count">{item.count} lượt</span>}
                   </button>
                 ))}
               </div>

@@ -296,3 +296,13 @@
 .search-trending-chip:hover .search-trending-chip-rank {
   color: var(--color-on-primary);
 }
+
+.search-trending-chip-count {
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  margin-left: 2px;
+}
+
+.search-trending-chip:hover .search-trending-chip-count {
+  color: rgba(255,255,255,0.75);
+}

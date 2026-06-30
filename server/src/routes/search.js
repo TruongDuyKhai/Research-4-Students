@@ -14,14 +14,48 @@ resourcesDb.exec(`
 
 /**
  * GET /api/search/trending
- * Returns top 10 most searched terms globally (server-side)
+ * Returns top 10 most searched terms. Falls back to popular content titles
+ * when the analytics table has fewer than 10 entries.
  */
 router.get('/trending', (req, res) => {
   try {
-    const terms = resourcesDb
+    const tracked = resourcesDb
       .prepare('SELECT term, count FROM search_analytics ORDER BY count DESC LIMIT 10')
       .all();
-    return res.status(200).json({ data: terms });
+
+    if (tracked.length >= 10) {
+      return res.status(200).json({ data: tracked });
+    }
+
+    // Supplement with published content titles as seed suggestions
+    const trackedSet = new Set(tracked.map(t => t.term.toLowerCase()));
+    const needed = 10 - tracked.length;
+
+    const resourceTitles = resourcesDb
+      .prepare(`SELECT name AS term FROM research_websites WHERE status = 'published' ORDER BY id DESC LIMIT ?`)
+      .all(needed);
+
+    const guideTitles = guidesDb
+      .prepare(`SELECT title AS term FROM guides WHERE status = 'published' ORDER BY id DESC LIMIT ?`)
+      .all(needed);
+
+    const articleTitles = knowledgeDb
+      .prepare(`SELECT title AS term FROM articles WHERE status = 'published' ORDER BY id DESC LIMIT ?`)
+      .all(needed);
+
+    const candidates = [...resourceTitles, ...guideTitles, ...articleTitles];
+    const seen = new Set(trackedSet);
+    const extra = [];
+    for (const c of candidates) {
+      if (extra.length >= needed) break;
+      const key = c.term.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        extra.push({ term: c.term, count: 0 });
+      }
+    }
+
+    return res.status(200).json({ data: [...tracked, ...extra].slice(0, 10) });
   } catch (error) {
     console.error('Trending failed:', error.message);
     return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch trending.' } });

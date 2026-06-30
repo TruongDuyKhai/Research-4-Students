@@ -173,7 +173,7 @@ const HomePage = () => {
                           >
                             <span className="drop-trending-rank">#{i + 1}</span>
                             <span style={{ flex: 1 }}>{item.term}</span>
-                            <span className="drop-tag">{item.count}</span>
+                            {item.count > 0 && <span className="drop-tag">{item.count}</span>}
                           </div>
                         ))}
                       </>
@@ -353,7 +353,7 @@ const HomePage = () => {
                   >
                     <span className="top-search-rank">#{idx + 1}</span>
                     <span className="top-search-term">{item.term}</span>
-                    <span className="top-search-count">{item.count}</span>
+                    {item.count > 0 && <span className="top-search-count">{item.count}</span>}
                   </button>
                 ))}
               </div>
