@@ -3,6 +3,70 @@ const { resourcesDb, knowledgeDb, guidesDb } = require('../db/connections');
 
 const router = express.Router();
 
+// Ensure search_analytics table exists
+resourcesDb.exec(`
+  CREATE TABLE IF NOT EXISTS search_analytics (
+    term TEXT PRIMARY KEY,
+    count INTEGER NOT NULL DEFAULT 0,
+    last_searched_at TEXT NOT NULL DEFAULT (datetime('now'))
+  )
+`);
+
+/**
+ * GET /api/search/trending
+ * Returns top 10 most searched terms globally (server-side)
+ */
+router.get('/trending', (req, res) => {
+  try {
+    const terms = resourcesDb
+      .prepare('SELECT term, count FROM search_analytics ORDER BY count DESC LIMIT 10')
+      .all();
+    return res.status(200).json({ data: terms });
+  } catch (error) {
+    console.error('Trending failed:', error.message);
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Failed to fetch trending.' } });
+  }
+});
+
+/**
+ * GET /api/search/autocomplete?q=...
+ * Returns title-only suggestions (fast, no content match)
+ */
+router.get('/autocomplete', (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q || q.length < 1) {
+    return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Query required.' } });
+  }
+  const like = `%${q}%`;
+  try {
+    const resources = resourcesDb.prepare(`
+      SELECT id, name AS title, 'resource' AS type
+      FROM research_websites
+      WHERE status = 'published' AND name LIKE ?
+      LIMIT 3
+    `).all(like);
+
+    const guides = guidesDb.prepare(`
+      SELECT id, title, 'guide' AS type
+      FROM guides
+      WHERE status = 'published' AND title LIKE ?
+      LIMIT 3
+    `).all(like);
+
+    const articles = knowledgeDb.prepare(`
+      SELECT id, title, 'article' AS type
+      FROM articles
+      WHERE status = 'published' AND title LIKE ?
+      LIMIT 4
+    `).all(like);
+
+    return res.status(200).json({ data: { resources, guides, articles } });
+  } catch (error) {
+    console.error('Autocomplete failed:', error.message);
+    return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Autocomplete failed.' } });
+  }
+});
+
 /**
  * GET /api/search?q=...&limit=5
  * Global search across resources, guides, and knowledge articles
@@ -14,6 +78,15 @@ router.get('/', (req, res) => {
   if (!q || q.length < 2) {
     return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'Query must be at least 2 characters.' } });
   }
+
+  // Track search term in analytics (fire-and-forget, never block the response)
+  try {
+    resourcesDb.prepare(`
+      INSERT INTO search_analytics (term, count, last_searched_at)
+      VALUES (?, 1, datetime('now'))
+      ON CONFLICT(term) DO UPDATE SET count = count + 1, last_searched_at = datetime('now')
+    `).run(q.toLowerCase());
+  } catch (_) {}
 
   const like = `%${q}%`;
 
