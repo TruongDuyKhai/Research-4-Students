@@ -27,6 +27,7 @@ const KnowledgePage = () => {
   
   const [loadingSubjects, setLoadingSubjects] = useState(true);
   const [loadingArticles, setLoadingArticles] = useState(false);
+  const [subjectsNavOpen, setSubjectsNavOpen] = useState(() => window.innerWidth > 768);
 
   // Pagination states for articles
   const [page, setPage] = useState(1);
@@ -235,7 +236,11 @@ const KnowledgePage = () => {
           )}
         </div>
 
-        <details className="knowledge-subject-nav" defaultOpen={window.innerWidth > 768}>
+        <details
+          className="knowledge-subject-nav"
+          open={subjectsNavOpen}
+          onToggle={(e) => setSubjectsNavOpen(e.target.open)}
+        >
           <summary>{t('knowledgePage.browseSubjects')}</summary>
 
           {loadingSubjects ? (
